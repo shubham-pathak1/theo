@@ -14,6 +14,7 @@ const envSchema = z.object({
   SERVER_URL: z.string().url().default("http://localhost:5000"),
   MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/theo"),
   REDIS_URL: z.string().optional().default(""),
+  ENABLE_REDIS: z.coerce.boolean().default(false),
   JWT_ACCESS_SECRET: z.string().default("dev-access-secret"),
   JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret"),
   COOKIE_SECRET: z.string().default("dev-cookie-secret"),

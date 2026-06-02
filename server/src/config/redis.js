@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 import { env } from "./env.js";
 
-export const redis = env.REDIS_URL
+export const redis = env.ENABLE_REDIS && env.REDIS_URL
   ? new IORedis(env.REDIS_URL, {
       enableOfflineQueue: false,
       lazyConnect: true,
