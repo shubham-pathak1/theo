@@ -1,12 +1,40 @@
-import { Crown, Gauge, Zap } from "lucide-react";
+import { Clock, Crown, Image, MessageSquare, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../state/AuthContext.jsx";
 
 const plans = [
-  { id: "free", name: "Free", price: "0", messages: 25, images: 5, icon: Gauge },
-  { id: "pro", name: "Pro", price: "499", messages: 250, images: 50, icon: Zap },
-  { id: "max", name: "Max", price: "999", messages: 1000, images: 200, icon: Crown }
+  {
+    id: "free",
+    name: "Free",
+    price: "0",
+    caption: "For trying Theo locally.",
+    messages: 25,
+    images: 5,
+    icon: Sparkles,
+    features: ["Theo Low and Medium access", "Basic image generations", "5-hour usage refresh"]
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "499",
+    caption: "For regular project work.",
+    messages: 250,
+    images: 50,
+    icon: Zap,
+    features: ["Higher chat limits", "Priority image queue", "Saved history and gallery publishing"],
+    popular: true
+  },
+  {
+    id: "max",
+    name: "Max",
+    price: "999",
+    caption: "For heavy creative sessions.",
+    messages: 1000,
+    images: 200,
+    icon: Crown,
+    features: ["Largest usage window", "Theo High and XHigh tiers", "Best for demos and portfolio work"]
+  }
 ];
 
 export function BillingPage() {
@@ -31,44 +59,93 @@ export function BillingPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 pb-24 lg:px-8 lg:pb-8">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">Plans and Usage</h1>
-          <p className="mt-2 text-ink/60 dark:text-paper/60">
-            Current plan: {user?.plan}. Limits reset every 5 hours.
-          </p>
+    <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] lg:px-10 lg:pb-10">
+      <div className="mx-auto max-w-7xl space-y-7">
+        <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Usage that resets with your workflow.</h1>
+            <p className="mt-2 max-w-2xl text-[#aaa49a]">
+              Theo uses short usage windows, so limits recover every 5 hours instead of locking you out for the whole day.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-[#22211f] px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">Current plan</p>
+            <p className="mt-1 text-2xl font-semibold capitalize">{user?.plan || "free"}</p>
+          </div>
         </header>
 
         {usage && (
-          <section className="mb-6 grid gap-4 md:grid-cols-2">
-            <UsageBar label="Messages" used={usage.used.messages} limit={usage.limits.messages} />
-            <UsageBar label="Images" used={usage.used.images} limit={usage.limits.images} />
+          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-3xl border border-white/10 bg-[#22211f] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold">Active usage window</h2>
+                  <p className="mt-1 text-sm text-[#8f887f]">Messages and image jobs share the current 5-hour cycle.</p>
+                </div>
+                <Clock className="text-[#d9895f]" size={24} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <UsageBar icon={MessageSquare} label="Messages" used={usage.used.messages} limit={usage.limits.messages} />
+                <UsageBar icon={Image} label="Images" used={usage.used.images} limit={usage.limits.images} />
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-[#22211f] p-5">
+              <ShieldCheck className="text-[#d9895f]" size={24} />
+              <h2 className="mt-4 text-xl font-semibold">Local demo friendly</h2>
+              <p className="mt-2 text-sm leading-6 text-[#aaa49a]">
+                Razorpay can run in demo mode, image generation can fall back locally, and usage remains trackable for presentation.
+              </p>
+              {usage?.resetAt && (
+                <p className="mt-5 rounded-2xl border border-white/10 bg-[#181715] px-4 py-3 text-sm text-[#c9c3ba]">
+                  Resets {new Date(usage.resetAt).toLocaleString()}.
+                </p>
+              )}
+            </div>
           </section>
         )}
 
-        {usage?.resetAt && (
-          <p className="mb-4 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-paper/70">
-            Current usage window resets at {new Date(usage.resetAt).toLocaleString()}.
-          </p>
-        )}
+        {notice && <p className="rounded-xl border border-white/10 bg-[#252421] px-3 py-2 text-sm text-[#c9c3ba]">{notice}</p>}
 
-        {notice && <p className="mb-4 rounded-md border border-ocean/30 bg-ocean/10 px-3 py-2 text-sm text-ocean">{notice}</p>}
-
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 lg:grid-cols-3">
           {plans.map((plan) => (
-            <article key={plan.id} className="rounded-md border border-line bg-white p-5 dark:border-white/10 dark:bg-white/5">
-              <div className="mb-5 flex items-center justify-between">
-                <plan.icon />
-                {user?.plan === plan.id && <span className="rounded-md bg-moss/10 px-2 py-1 text-xs font-semibold text-moss">Active</span>}
+            <article
+              key={plan.id}
+              className={`relative overflow-hidden rounded-3xl border p-5 ${
+                plan.popular ? "border-[#d9895f]/50 bg-[#2a2420]" : "border-white/10 bg-[#22211f]"
+              }`}
+            >
+              {plan.popular && (
+                <span className="absolute right-5 top-5 rounded-full bg-[#d9895f] px-3 py-1 text-xs font-semibold text-[#171614]">
+                  Popular
+                </span>
+              )}
+              <div className="mb-6 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-[#181715] text-[#f4f1ea]">
+                <plan.icon size={22} />
               </div>
               <h2 className="text-2xl font-semibold">{plan.name}</h2>
-              <p className="mt-2 text-3xl font-semibold">Rs {plan.price}</p>
-              <p className="mt-4 text-sm text-ink/60 dark:text-paper/60">
-                {plan.messages} messages/day and {plan.images} images/day.
+              <p className="mt-2 text-sm text-[#aaa49a]">{plan.caption}</p>
+              <p className="mt-6 font-serif text-5xl text-[#e8dfd2]">
+                Rs {plan.price}
+                <span className="ml-2 align-middle text-sm font-sans text-[#8f887f]">/ month</span>
               </p>
-              <button className="primary-btn mt-6 w-full" onClick={() => subscribe(plan.id)} disabled={user?.plan === plan.id}>
-                {plan.id === "free" ? "Included" : "Upgrade"}
+
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <LimitPill icon={MessageSquare} value={plan.messages} label="messages" />
+                <LimitPill icon={Image} value={plan.images} label="images" />
+              </div>
+
+              <ul className="mt-6 space-y-3 text-sm text-[#c9c3ba]">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <ShieldCheck className="mt-0.5 shrink-0 text-[#d9895f]" size={16} />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button className="primary-btn mt-7 w-full" onClick={() => subscribe(plan.id)} disabled={user?.plan === plan.id}>
+                {user?.plan === plan.id ? "Current plan" : plan.id === "free" ? "Included" : "Upgrade plan"}
               </button>
             </article>
           ))}
@@ -78,20 +155,37 @@ export function BillingPage() {
   );
 }
 
-function UsageBar({ label, used, limit }) {
+function UsageBar({ icon: Icon, label, used, limit }) {
   const percent = Math.min(100, Math.round((used / limit) * 100));
+  const remaining = Math.max(0, limit - used);
 
   return (
-    <div className="rounded-md border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="mb-3 flex justify-between text-sm">
-        <span className="font-semibold">{label}</span>
-        <span>
-          {used} / {limit}
-        </span>
+    <div className="rounded-2xl border border-white/10 bg-[#181715] p-4">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#2b2a27]">
+            <Icon size={18} />
+          </div>
+          <div>
+            <p className="font-semibold">{label}</p>
+            <p className="text-xs text-[#8f887f]">{remaining} remaining</p>
+          </div>
+        </div>
+        <span className="text-sm text-[#c9c3ba]">{used} / {limit}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded bg-line dark:bg-white/10">
-        <div className="h-full bg-ocean" style={{ width: `${percent}%` }} />
+      <div className="h-2 overflow-hidden rounded bg-white/10">
+        <div className="h-full bg-[#d9895f]" style={{ width: `${percent}%` }} />
       </div>
+    </div>
+  );
+}
+
+function LimitPill({ icon: Icon, value, label }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#181715] p-3">
+      <Icon className="text-[#d9895f]" size={17} />
+      <p className="mt-3 text-xl font-semibold">{value}</p>
+      <p className="text-xs text-[#8f887f]">{label}</p>
     </div>
   );
 }
