@@ -71,8 +71,10 @@ export function AuthPage() {
   const [form, setForm] = useState({ email: "", password: "", displayName: "" });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [resetUrl, setResetUrl] = useState("");
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("Checking Google Sign-In...");
+  const [googleClientId, setGoogleClientId] = useState("");
   const googleButtonRef = useRef(null);
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export function AuthPage() {
 
     async function loadGoogleButton() {
       const config = await api.get("/api/auth/google-config");
+      setGoogleClientId(config.clientId || "");
       if (cancelled || !config.enabled || !config.clientId) {
         setGoogleEnabled(false);
         setGoogleStatus("Google Sign-In is not configured");
@@ -172,6 +175,7 @@ export function AuthPage() {
   async function forgotPassword() {
     setError("");
     setNotice("");
+    setResetUrl("");
     if (!form.email) {
       setError("Enter your email first.");
       return;
@@ -179,10 +183,66 @@ export function AuthPage() {
 
     try {
       const data = await api.post("/api/auth/forgot-password", { email: form.email });
-      setNotice(data.devResetUrl ? `Dev reset link: ${data.devResetUrl}` : data.message || "If the email exists, a reset link has been created.");
+      setResetUrl(data.devResetUrl || "");
+      setNotice(data.message || "If the email exists, a reset link has been created.");
     } catch (err) {
       setError(err.message || "Could not request password reset.");
     }
+  }
+
+  async function fallbackGoogleLogin() {
+    setError("");
+    setNotice("");
+    if (!googleClientId) {
+      setError("Google client ID is not available. Restart the backend and check GOOGLE_CLIENT_ID.");
+      return;
+    }
+
+    const nonce = crypto.randomUUID();
+    const redirectUri = `${window.location.origin}/auth`;
+    const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    url.searchParams.set("client_id", googleClientId);
+    url.searchParams.set("redirect_uri", redirectUri);
+    url.searchParams.set("response_type", "id_token");
+    url.searchParams.set("scope", "openid email profile");
+    url.searchParams.set("prompt", "select_account");
+    url.searchParams.set("nonce", nonce);
+
+    const popup = window.open(url.toString(), "theo_google_login", "width=460,height=640");
+    if (!popup) {
+      setError("Google popup was blocked by the browser.");
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        if (popup.closed) {
+          window.clearInterval(timer);
+          return;
+        }
+
+        const hash = popup.location.hash;
+        if (!hash) return;
+
+        const params = new URLSearchParams(hash.slice(1));
+        const idToken = params.get("id_token");
+        const oauthError = params.get("error");
+        if (oauthError) {
+          popup.close();
+          window.clearInterval(timer);
+          setError(`Google Sign-In failed: ${oauthError}`);
+          return;
+        }
+
+        if (idToken) {
+          popup.close();
+          window.clearInterval(timer);
+          await googleLogin(idToken);
+        }
+      } catch {
+        // Ignore cross-origin access until Google redirects back to localhost.
+      }
+    }, 400);
   }
 
   return (
@@ -247,10 +307,10 @@ export function AuthPage() {
               <div className="grid min-h-11 place-items-center rounded-md border border-white/15 bg-white px-2 py-1">
                 <div ref={googleButtonRef} />
                 {!googleEnabled && (
-                  <p className="flex items-center gap-2 text-sm font-semibold text-[#161512]">
+                  <button type="button" className="flex items-center gap-2 text-sm font-semibold text-[#161512]" onClick={fallbackGoogleLogin}>
                     <GoogleMark />
                     {googleStatus}
-                  </p>
+                  </button>
                 )}
               </div>
 
@@ -286,7 +346,16 @@ export function AuthPage() {
               </div>
 
               {error && <p className="mt-3 rounded-md border border-[#d9895f]/30 bg-[#d9895f]/10 px-3 py-2 text-sm text-[#f0b18e]">{error}</p>}
-              {notice && <p className="mt-3 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/70">{notice}</p>}
+              {notice && (
+                <p className="mt-3 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/70">
+                  {notice}
+                  {resetUrl && (
+                    <a className="mt-2 block break-all font-semibold text-[#f6f1e8] underline" href={resetUrl}>
+                      Open reset link
+                    </a>
+                  )}
+                </p>
+              )}
 
               <button className="mt-4 h-11 w-full rounded-md bg-[#f6f1e8] text-sm font-semibold text-[#161512] transition hover:bg-white">
                 Continue with email
