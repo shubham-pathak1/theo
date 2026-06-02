@@ -13,7 +13,11 @@ export async function processImageGeneration(imageId) {
   emitImageStatus(image);
 
   try {
-    const buffer = await generateImage(image.prompt, { aspectRatio: image.aspectRatio });
+    const finalPrompt = enhanceImagePrompt(image.prompt, image.style);
+    image.enhancedPrompt = finalPrompt;
+    await image.save();
+
+    const buffer = await generateImage(finalPrompt, { aspectRatio: image.aspectRatio });
     const uploaded = await uploadGeneratedImage(buffer, {
       userId: image.user.toString(),
       imageId: image.id
@@ -32,4 +36,16 @@ export async function processImageGeneration(imageId) {
     emitImageStatus(image);
     throw error;
   }
+}
+
+function enhanceImagePrompt(prompt, style = "general") {
+  const treatments = {
+    editorial: "clean editorial product photography, premium black and ivory palette, refined lighting, crisp composition",
+    cinematic: "cinematic lighting, realistic depth, soft contrast, atmospheric but clear subject framing",
+    interface: "polished app interface screenshot, clean layout, premium SaaS product design, readable details",
+    illustration: "high quality editorial illustration, soft hand-finished detail, balanced composition"
+  };
+
+  const treatment = treatments[style] || treatments.editorial;
+  return `${prompt}. Visual treatment: ${treatment}. Avoid clutter, keep the main subject clear.`;
 }
