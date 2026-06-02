@@ -83,6 +83,22 @@ export async function streamMessage(conversationId, payload, onToken) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let tokenCount = 0;
+
+  function processFrame(frame) {
+    const event = frame.includes("event: error") ? "error" : frame.includes("event: done") ? "done" : "message";
+    const dataLine = frame.split("\n").find((line) => line.startsWith("data: "));
+    if (!dataLine) return;
+
+    const data = JSON.parse(dataLine.slice(6));
+    if (event === "error") {
+      throw new Error(data.message);
+    }
+    if (event === "message" && data.token) {
+      tokenCount += 1;
+      onToken(data.token);
+    }
+  }
 
   while (true) {
     const { value, done } = await reader.read();
@@ -93,17 +109,15 @@ export async function streamMessage(conversationId, payload, onToken) {
     buffer = frames.pop() || "";
 
     for (const frame of frames) {
-      const event = frame.includes("event: error") ? "error" : frame.includes("event: done") ? "done" : "message";
-      const dataLine = frame.split("\n").find((line) => line.startsWith("data: "));
-      if (!dataLine) continue;
-
-      const data = JSON.parse(dataLine.slice(6));
-      if (event === "error") {
-        throw new Error(data.message);
-      }
-      if (event === "message") {
-        onToken(data.token);
-      }
+      processFrame(frame);
     }
+  }
+
+  if (buffer.trim()) {
+    processFrame(buffer);
+  }
+
+  if (tokenCount === 0) {
+    throw new Error("Theo did not receive a response from the model. Please try again.");
   }
 }

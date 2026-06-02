@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api, refreshSession, setAccessToken } from "../lib/api.js";
+import { api, getAccessToken, refreshSession, setAccessToken } from "../lib/api.js";
 
 const AuthContext = createContext(null);
 
@@ -8,9 +8,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    refreshSession()
-      .then((session) => setUser(session?.user || null))
-      .finally(() => setLoading(false));
+    async function restoreSession() {
+      try {
+        if (getAccessToken()) {
+          const data = await api.get("/api/auth/me");
+          setUser(data.user);
+          return;
+        }
+
+        const session = await refreshSession();
+        setUser(session?.user || null);
+      } catch {
+        setAccessToken("");
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    restoreSession();
   }, []);
 
   const value = useMemo(
@@ -25,6 +41,12 @@ export function AuthProvider({ children }) {
       },
       async register(payload) {
         const data = await api.post("/api/auth/register", payload);
+        setAccessToken(data.accessToken);
+        setUser(data.user);
+        return data;
+      },
+      async googleLogin(idToken) {
+        const data = await api.post("/api/auth/google", { idToken });
         setAccessToken(data.accessToken);
         setUser(data.user);
         return data;

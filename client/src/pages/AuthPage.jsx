@@ -10,7 +10,7 @@ import {
   Sparkle,
   Zap
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -66,11 +66,88 @@ const footerColumns = [
 ];
 
 export function AuthPage() {
-  const { user, login, register } = useAuth();
+  const { user, login, register, googleLogin } = useAuth();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "", displayName: "" });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState("Checking Google Sign-In...");
+  const googleButtonRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGoogleButton() {
+      const config = await api.get("/api/auth/google-config");
+      if (cancelled || !config.enabled || !config.clientId) {
+        setGoogleEnabled(false);
+        setGoogleStatus("Google Sign-In is not configured");
+        return;
+      }
+
+      setGoogleEnabled(true);
+      setGoogleStatus("");
+
+      await new Promise((resolve, reject) => {
+        if (window.google?.accounts?.id) {
+          resolve();
+          return;
+        }
+
+        const existing = document.querySelector("script[data-google-identity]");
+        if (existing) {
+          existing.addEventListener("load", resolve, { once: true });
+          existing.addEventListener("error", reject, { once: true });
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleIdentity = "true";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+
+      if (cancelled || !googleButtonRef.current) return;
+
+      window.google.accounts.id.initialize({
+        client_id: config.clientId,
+        callback: async (response) => {
+          setError("");
+          setNotice("");
+          try {
+            await googleLogin(response.credential);
+          } catch (err) {
+            setError(err.message);
+          }
+        }
+      });
+
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "rectangular",
+        width: 360,
+        text: mode === "login" ? "continue_with" : "signup_with"
+      });
+    }
+
+    loadGoogleButton().catch(() => {
+      if (!cancelled) {
+        setGoogleEnabled(false);
+        setGoogleStatus("Google Sign-In could not load");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleLogin, mode]);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -102,9 +179,9 @@ export function AuthPage() {
 
     try {
       const data = await api.post("/api/auth/forgot-password", { email: form.email });
-      setNotice(data.message || "If the email exists, a reset link has been sent.");
-    } catch {
-      setError("Could not request password reset.");
+      setNotice(data.devResetUrl ? `Dev reset link: ${data.devResetUrl}` : data.message || "If the email exists, a reset link has been created.");
+    } catch (err) {
+      setError(err.message || "Could not request password reset.");
     }
   }
 
@@ -167,14 +244,15 @@ export function AuthPage() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-white/15 bg-transparent text-sm font-semibold text-[#f6f1e8] transition hover:bg-white/5"
-                onClick={() => setError("Google Sign-In needs your Google client ID before it can run.")}
-              >
-                <span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold text-[#4285f4]">G</span>
-                Continue with Google
-              </button>
+              <div className="grid min-h-11 place-items-center rounded-md border border-white/15 bg-white px-2 py-1">
+                <div ref={googleButtonRef} />
+                {!googleEnabled && (
+                  <p className="flex items-center gap-2 text-sm font-semibold text-[#161512]">
+                    <GoogleMark />
+                    {googleStatus}
+                  </p>
+                )}
+              </div>
 
               <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-[#f6f1e8]/35">
                 <span className="h-px flex-1 bg-white/10" />
@@ -338,6 +416,17 @@ export function AuthPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.56 7.74 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.74 1 4 3.44 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z" />
+    </svg>
   );
 }
 

@@ -34,7 +34,7 @@ export async function getUsage(userId, plan = "free") {
   let images = 0;
 
   try {
-    if (redis.status !== "ready") {
+    if (redis?.status !== "ready") {
       throw new Error("Redis not ready");
     }
     [messages, images] = await redis.mget(messageKey, imageKey);
@@ -61,7 +61,7 @@ export async function consumeUsage(user, kind) {
   let used;
 
   try {
-    if (redis.status !== "ready") {
+    if (redis?.status !== "ready") {
       throw new Error("Redis not ready");
     }
     used = await redis.incr(key);
@@ -75,7 +75,7 @@ export async function consumeUsage(user, kind) {
 
   if (used > allowed) {
     try {
-      await redis.decr(key);
+      await redis?.decr(key);
     } catch {
       memoryUsage.set(key, Math.max(0, used - 1));
     }

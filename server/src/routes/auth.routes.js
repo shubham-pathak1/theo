@@ -167,6 +167,13 @@ authRouter.post(
   })
 );
 
+authRouter.get("/google-config", (_req, res) => {
+  res.json({
+    enabled: Boolean(env.GOOGLE_CLIENT_ID),
+    clientId: env.GOOGLE_CLIENT_ID
+  });
+});
+
 authRouter.post(
   "/verify-email",
   validate(tokenSchema),
@@ -192,21 +199,33 @@ authRouter.post(
   validate(forgotSchema),
   asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.validated.body.email });
+    let devResetToken;
 
     if (user) {
       const token = randomToken();
+      devResetToken = token;
       user.passwordResetTokenHash = hashToken(token);
       user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
       await user.save();
 
-      await sendMail({
-        to: user.email,
-        subject: "Reset your Theo password",
-        html: passwordResetEmail(`${env.CLIENT_URL}/reset-password?token=${token}`)
-      });
+      try {
+        await sendMail({
+          to: user.email,
+          subject: "Reset your Theo password",
+          html: passwordResetEmail(`${env.CLIENT_URL}/reset-password?token=${token}`)
+        });
+      } catch (error) {
+        console.warn("Password reset email could not be sent:", error.message);
+      }
     }
 
-    res.json({ message: "If the email exists, a reset link has been sent" });
+    res.json({
+      message: "If the email exists, a reset link has been created",
+      devResetUrl:
+        env.NODE_ENV === "production" || !devResetToken
+          ? undefined
+          : `${env.CLIENT_URL}/reset-password?token=${devResetToken}`
+    });
   })
 );
 

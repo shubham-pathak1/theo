@@ -25,10 +25,11 @@ export function setRefreshCookie(res, token) {
     secure: env.NODE_ENV === "production",
     sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: refreshDays * 24 * 60 * 60 * 1000,
-    path: "/api/auth/refresh"
+    path: "/"
   });
 }
 
 export function clearRefreshCookie(res) {
+  res.clearCookie("theo_refresh", { path: "/" });
   res.clearCookie("theo_refresh", { path: "/api/auth/refresh" });
 }

@@ -1,11 +1,17 @@
 import { Worker } from "bullmq";
 import { connectDb } from "../config/db.js";
-import { redis } from "../config/redis.js";
+import { connectRedis, redis } from "../config/redis.js";
 import { Image } from "../models/Image.js";
 import { emitImageStatus } from "../services/socket.service.js";
 import { processImageGeneration } from "../services/imageGeneration.service.js";
 
 export async function startImageWorker() {
+  const connected = await connectRedis();
+  if (!connected) {
+    console.log("Image worker skipped: Redis is not available");
+    return null;
+  }
+
   const worker = new Worker(
     "image-generation",
     async (job) => {

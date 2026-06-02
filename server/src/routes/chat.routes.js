@@ -40,6 +40,7 @@ chatRouter.use(requireAuth);
 
 function compactMessages(messages) {
   return messages
+    .filter((message) => message.content?.trim())
     .map((message) => `${message.role === "model" ? "Theo" : "User"}: ${message.content}`)
     .join("\n")
     .replace(/\s+/g, " ")
@@ -188,6 +189,7 @@ chatRouter.post(
     if (conversation.title === "New chat") {
       conversation.title = message.slice(0, 70);
     }
+    conversation.messages = conversation.messages.filter((entry) => entry.content?.trim());
     await conversation.save();
     await compactConversationIfNeeded(conversation);
 
@@ -198,10 +200,13 @@ chatRouter.post(
       "X-Accel-Buffering": "no"
     });
 
-    const recentMessages = conversation.messages.slice(-env.THEO_CONTEXT_RECENT_MESSAGES).map((entry) => ({
-      role: entry.role,
-      content: entry.content
-    }));
+    const recentMessages = conversation.messages
+      .filter((entry) => entry.content?.trim())
+      .slice(-env.THEO_CONTEXT_RECENT_MESSAGES)
+      .map((entry) => ({
+        role: entry.role,
+        content: entry.content
+      }));
 
     let assistantText = "";
     try {
@@ -214,8 +219,10 @@ chatRouter.post(
         }
       });
 
-      conversation.messages.push({ role: "model", content: assistantText, model: selectedTier.id });
-      await conversation.save();
+      if (assistantText?.trim()) {
+        conversation.messages.push({ role: "model", content: assistantText, model: selectedTier.id });
+        await conversation.save();
+      }
       res.write(`event: done\ndata: ${JSON.stringify({ conversationId: conversation.id })}\n\n`);
       res.end();
     } catch (error) {

@@ -85,7 +85,7 @@ export function ChatPage() {
       await loadConversations();
     } catch (err) {
       setError(err.message);
-      setMessages((items) => items.filter((_, index) => index !== items.length - 1));
+      setMessages((items) => items.filter((message) => message.content?.trim()));
     } finally {
       setBusy(false);
     }
@@ -108,41 +108,29 @@ export function ChatPage() {
     await loadConversations();
   }
 
-  return (
-    <div className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-[#f7f5ef] pb-20 text-[#181817] dark:bg-[#111111] dark:text-[#f4f1ea] lg:grid-cols-[320px_1fr] lg:grid-rows-[auto_1fr_auto] lg:pb-0">
-      <aside className="hidden border-r border-black/10 bg-[#fbfaf6] p-4 dark:border-white/10 dark:bg-[#171717] lg:row-span-3 lg:block">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45 dark:text-white/45">Conversations</h2>
-          <button className="icon-btn" onClick={newChat} title="New chat">
-            <Plus size={18} />
-          </button>
-        </div>
-        <div className="space-y-2">
-          {conversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              className={`w-full rounded-md border p-3 text-left transition ${
-                activeId === conversation.id
-                  ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-                  : "border-black/10 bg-white hover:border-black/30 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/30"
-              }`}
-              onClick={() => setActiveId(conversation.id)}
-            >
-              <p className="truncate text-sm font-semibold">{conversation.title}</p>
-              <p className="mt-1 line-clamp-2 text-xs opacity-65">{conversation.preview}</p>
-            </button>
-          ))}
-        </div>
-      </aside>
-
-      <header className="flex min-h-16 items-center justify-between border-b border-black/10 bg-[#f7f5ef]/90 px-4 backdrop-blur dark:border-white/10 dark:bg-[#111111]/90">
-        <div>
-          <h1 className="text-xl font-semibold">{activeConversation?.title || "New chat"}</h1>
-          <p className="text-sm text-black/55 dark:text-white/55">Streaming workspace with compacted long-context memory</p>
+  const composer = (
+    <div className="rounded-3xl border border-white/8 bg-[#2b2a27] p-4 shadow-[0_22px_80px_rgba(0,0,0,0.24)]">
+      <textarea
+        className="min-h-24 w-full resize-none bg-transparent text-lg text-[#f4f1ea] outline-none placeholder:text-[#aaa49a]"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            send();
+          }
+        }}
+        placeholder="Message Theo"
+      />
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-[#aaa49a]">
+          <Layers3 size={14} />
+          <span>Context {contextPercent}%</span>
+          <span className="hidden sm:inline">before compaction</span>
         </div>
         <div className="flex items-center gap-2">
           <select
-            className="hidden h-10 rounded-md border border-black/10 bg-white px-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-[#1b1b1b] sm:block"
+            className="h-9 rounded-lg border border-white/8 bg-[#22211f] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
             title="Model tier"
@@ -153,28 +141,69 @@ export function ChatPage() {
               </option>
             ))}
           </select>
-          <button className="icon-btn" onClick={newChat} title="New chat">
+          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#f4f1ea] text-[#171614] transition hover:bg-white" onClick={send} disabled={busy} title="Send">
+            <Send size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-[#1d1c1a] pb-20 text-[#f4f1ea] lg:pb-0">
+      <header className="flex min-h-16 items-center justify-between border-b border-white/8 bg-[#1d1c1a]/90 px-5 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-3">
+          <button className="grid h-9 w-9 place-items-center rounded-full bg-[#2b2a27] text-[#f4f1ea] transition hover:bg-[#34322f]" onClick={newChat} title="New chat">
             <Plus size={18} />
           </button>
-          <button className="icon-btn" onClick={renameConversation} title="Rename">
-            <Edit3 size={18} />
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold">{activeConversation?.title || "New chat"}</h1>
+            <p className="truncate text-sm text-[#aaa49a]">{activeModel?.description || "Balanced reasoning for everyday work."}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            className="hidden h-10 max-w-56 rounded-xl border border-white/8 bg-[#24231f] px-3 text-sm text-[#d8d1c7] outline-none xl:block"
+            value={activeId}
+            onChange={(event) => setActiveId(event.target.value)}
+            title="Recent conversations"
+          >
+            <option value="">New chat</option>
+            {conversations.map((conversation) => (
+              <option key={conversation.id} value={conversation.id}>
+                {conversation.title}
+              </option>
+            ))}
+          </select>
+          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#2b2a27] text-[#d8d1c7] transition hover:bg-[#34322f]" onClick={renameConversation} title="Rename">
+            <Edit3 size={17} />
           </button>
-          <button className="icon-btn" onClick={deleteConversation} title="Delete">
-            <Trash2 size={18} />
+          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#2b2a27] text-[#d8d1c7] transition hover:bg-[#34322f]" onClick={deleteConversation} title="Delete">
+            <Trash2 size={17} />
           </button>
         </div>
       </header>
 
-      <section className="overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-4xl space-y-5">
+      <section className="overflow-y-auto px-5 py-6">
+        <div className="mx-auto max-w-3xl space-y-5">
           {messages.length === 0 && (
-            <div className="grid min-h-[45vh] place-items-center text-center">
-              <div>
-                <div className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-full border border-black/10 bg-white dark:border-white/10 dark:bg-white/5">
-                  <Sparkles size={20} />
+            <div className="grid min-h-[calc(100vh-8rem)] place-items-center">
+              <div className="w-full">
+                <div className="mb-12 text-center">
+                  <div className="mb-5 inline-flex items-center gap-3">
+                    <Sparkles className="text-[#d9895f]" size={34} />
+                    <h2 className="font-serif text-5xl tracking-normal text-[#e8dfd2]">Afternoon, Shubham</h2>
+                  </div>
+                  <p className="text-[#aaa49a]">Think, draft, debug, and generate from one workspace.</p>
                 </div>
-                <h2 className="text-4xl font-semibold tracking-tight">Ask Theo anything.</h2>
-                <p className="mt-3 text-black/60 dark:text-white/60">Start with a product idea, bug, plan, or code question.</p>
+                {composer}
+                <div className="mx-auto mt-5 flex max-w-xl flex-wrap justify-center gap-2">
+                  {["Write", "Learn", "Code", "Plan", "Theo's choice"].map((item) => (
+                    <button key={item} className="rounded-xl bg-[#2b2a27] px-4 py-2 text-sm font-medium text-[#e8dfd2] transition hover:bg-[#34322f]">
+                      {item}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -182,10 +211,10 @@ export function ChatPage() {
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[86%] rounded-md px-4 py-3 ${
+                className={`max-w-[86%] rounded-2xl px-4 py-3 ${
                   message.role === "user"
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-white/5"
+                    ? "bg-[#34322f] text-[#fffaf0]"
+                    : "bg-transparent text-[#f4f1ea]"
                 }`}
               >
                 {message.role === "model" ? <MarkdownMessage content={message.content || "Thinking..."} /> : <p>{message.content}</p>}
@@ -193,35 +222,12 @@ export function ChatPage() {
             </div>
           ))}
 
-          {error && <p className="rounded-md border border-black/20 bg-white px-3 py-2 text-sm text-black dark:border-white/20 dark:bg-white/5 dark:text-white">{error}</p>}
+          {error && <p className="rounded-xl border border-[#d9895f]/30 bg-[#d9895f]/10 px-3 py-2 text-sm text-[#efb18d]">{error}</p>}
         </div>
       </section>
 
-      <footer className="border-t border-black/10 bg-[#f7f5ef] px-4 py-3 dark:border-white/10 dark:bg-[#111111]">
-        <div className="mx-auto mb-2 flex max-w-4xl flex-col justify-between gap-1 text-xs text-black/50 dark:text-white/45 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2">
-            <Layers3 size={14} />
-            <span>Context: {contextPercent}% before compaction</span>
-          </div>
-          <span>{activeModel?.description || "Balanced reasoning for everyday work."}</span>
-        </div>
-        <div className="mx-auto flex max-w-4xl gap-2">
-          <textarea
-            className="min-h-12 flex-1 resize-none rounded-md border border-black/10 bg-white px-3 py-3 outline-none transition focus:border-black/40 dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            placeholder="Message Theo"
-          />
-          <button className="primary-icon-btn" onClick={send} disabled={busy} title="Send">
-            <Send size={20} />
-          </button>
-        </div>
+      <footer className={`bg-[#1d1c1a] px-5 pb-5 ${messages.length === 0 ? "hidden" : ""}`}>
+        <div className="mx-auto max-w-3xl">{composer}</div>
       </footer>
     </div>
   );

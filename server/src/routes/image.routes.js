@@ -40,7 +40,7 @@ imageRouter.post(
     });
 
     try {
-      if (redis.status !== "ready") {
+      if (!imageQueue || redis?.status !== "ready") {
         throw new Error("Redis not ready");
       }
       const job = await imageQueue.add("generate", { imageId: image.id }, { attempts: 2 });

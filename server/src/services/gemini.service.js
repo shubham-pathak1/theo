@@ -3,29 +3,41 @@ import { ApiError } from "../utils/ApiError.js";
 
 const baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
+const modelAliases = {
+  "gemini-1.5-flash": "gemini-2.5-flash",
+  "gemini-1.5-pro": "gemini-2.5-pro",
+  "gemini-2.5-flash-lite-001": "gemini-2.5-flash-lite"
+};
+
+const fallbackModels = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash"];
+
+function normalizeModel(model) {
+  return modelAliases[model] || model || env.GEMINI_TEXT_MODEL;
+}
+
 export const modelTiers = [
   {
     id: "low",
     label: "Theo Low",
-    model: env.THEO_MODEL_LOW,
+    model: normalizeModel(env.THEO_MODEL_LOW),
     description: "Fast responses for drafts and simple questions."
   },
   {
     id: "medium",
     label: "Theo Medium",
-    model: env.THEO_MODEL_MEDIUM,
+    model: normalizeModel(env.THEO_MODEL_MEDIUM),
     description: "Balanced reasoning for everyday work."
   },
   {
     id: "high",
     label: "Theo High",
-    model: env.THEO_MODEL_HIGH,
+    model: normalizeModel(env.THEO_MODEL_HIGH),
     description: "Deeper reasoning for planning and technical tasks."
   },
   {
     id: "xhigh",
     label: "Theo XHigh",
-    model: env.THEO_MODEL_XHIGH,
+    model: normalizeModel(env.THEO_MODEL_XHIGH),
     description: "Highest quality mode for complex prompts."
   }
 ];
@@ -51,7 +63,45 @@ export function toGeminiContents(messages) {
   }));
 }
 
+function demoImageBuffer(prompt, aspectRatio = "1:1", note = "Gemini image generation is not available on this plan") {
+  const [width, height] = aspectRatio.split(":").map(Number);
+  const svgWidth = width >= height ? 1280 : 960;
+  const svgHeight = height > width ? 1280 : width === height ? 1024 : 720;
+  const safePrompt = prompt
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .slice(0, 280);
+  const safeNote = note
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .slice(0, 180);
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+      <defs>
+        <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stop-color="#171614"/>
+          <stop offset="1" stop-color="#3b342d"/>
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#g)"/>
+      <rect x="42" y="42" width="${svgWidth - 84}" height="${svgHeight - 84}" rx="32" fill="#f4f1ea"/>
+      <text x="82" y="126" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#171614">Theo preview image</text>
+      <text x="82" y="178" font-family="Arial, sans-serif" font-size="20" fill="#746b60">${safeNote}</text>
+      <foreignObject x="82" y="250" width="${svgWidth - 164}" height="${svgHeight - 330}">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;font-size:44px;line-height:1.14;font-weight:700;color:#171614;">
+          ${safePrompt}
+        </div>
+      </foreignObject>
+    </svg>`;
+
+  return Buffer.from(svg);
+}
+
 export async function streamChat({ messages, model, systemInstruction, onToken }) {
+  const selectedModel = normalizeModel(model);
   const hasKey = requireGeminiKey();
   if (!hasKey) {
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content || "";
@@ -73,80 +123,59 @@ export async function streamChat({ messages, model, systemInstruction, onToken }
     return demoText;
   }
 
-  const response = await fetch(
-    `${baseUrl}/models/${model}:streamGenerateContent?alt=sse`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": env.GEMINI_API_KEY
-      },
-      body: JSON.stringify({
-        system_instruction: systemInstruction
-          ? { parts: [{ text: systemInstruction }] }
-          : undefined,
-        contents: toGeminiContents(messages)
-      })
-    }
-  );
+  const modelsToTry = [...new Set([selectedModel, ...fallbackModels])];
+  let lastError = "";
 
-  if (!response.ok || !response.body) {
-    throw new ApiError(response.status, `Gemini stream failed: ${await response.text()}`);
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let fullText = "";
-
-  for await (const chunk of response.body) {
-    buffer += decoder.decode(chunk, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() || "";
-
-    for (const frame of frames) {
-      const line = frame.split("\n").find((entry) => entry.startsWith("data: "));
-      if (!line) continue;
-
-      const payload = JSON.parse(line.slice(6));
-      const token = payload.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text || "")
-        .join("");
-
-      if (token) {
-        fullText += token;
-        onToken(token);
+  for (const candidateModel of modelsToTry) {
+    const response = await fetch(
+      `${baseUrl}/models/${candidateModel}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": env.GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          system_instruction: systemInstruction
+            ? { parts: [{ text: systemInstruction }] }
+            : undefined,
+          contents: toGeminiContents(messages)
+        })
       }
+    );
+
+    if (!response.ok) {
+      lastError = await response.text();
+      if (![429, 500, 503].includes(response.status)) break;
+      continue;
     }
+
+    const data = await response.json();
+    const fullText = data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || "")
+      .join("")
+      .trim();
+
+    if (!fullText) {
+      lastError = JSON.stringify(data);
+      continue;
+    }
+
+    for (const token of fullText.match(/.{1,28}(\s|$)/g) || [fullText]) {
+      onToken(token);
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 12));
+    }
+
+    return fullText;
   }
 
-  return fullText;
+  throw new ApiError(503, `Gemini request failed: ${lastError || "No usable response from available models"}`);
 }
 
 export async function generateImage(prompt, { aspectRatio = "1:1" } = {}) {
   const hasKey = requireGeminiKey();
   if (!hasKey) {
-    const [width, height] = aspectRatio.split(":").map(Number);
-    const svgWidth = width >= height ? 1280 : 960;
-    const svgHeight = height > width ? 1280 : width === height ? 1024 : 720;
-    const safePrompt = prompt
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .slice(0, 240);
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <rect width="100%" height="100%" fill="#111111"/>
-        <rect x="32" y="32" width="${svgWidth - 64}" height="${svgHeight - 64}" rx="28" fill="#f6f2ea"/>
-        <text x="72" y="110" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#111111">Theo demo image</text>
-        <text x="72" y="166" font-family="Arial, sans-serif" font-size="20" fill="#555555">Gemini image key not configured</text>
-        <foreignObject x="72" y="230" width="${svgWidth - 144}" height="${svgHeight - 300}">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;font-size:42px;line-height:1.16;font-weight:700;color:#111;">
-            ${safePrompt}
-          </div>
-        </foreignObject>
-      </svg>`;
-
-    return Buffer.from(svg);
+    return demoImageBuffer(prompt, aspectRatio, "Gemini image key not configured");
   }
 
   const response = await fetch(
@@ -168,7 +197,11 @@ export async function generateImage(prompt, { aspectRatio = "1:1" } = {}) {
   );
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Imagen request failed: ${await response.text()}`);
+    const errorText = await response.text();
+    if (env.NODE_ENV !== "production") {
+      return demoImageBuffer(prompt, aspectRatio, "Imagen is paid-only or unavailable for this key");
+    }
+    throw new ApiError(response.status, `Imagen request failed: ${errorText}`);
   }
 
   const data = await response.json();

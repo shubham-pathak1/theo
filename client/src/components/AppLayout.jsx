@@ -13,7 +13,7 @@ const navItems = [
 
 export function AppLayout() {
   const { user, logout } = useAuth();
-  const [dark, setDark] = useState(() => localStorage.getItem("theo_theme") === "dark");
+  const [dark, setDark] = useState(() => localStorage.getItem("theo_theme") !== "light");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -21,15 +21,15 @@ export function AppLayout() {
   }, [dark]);
 
   return (
-    <div className="min-h-screen bg-paper text-ink dark:bg-ink dark:text-paper">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-line/80 bg-paper/95 px-4 py-5 dark:border-white/10 dark:bg-[#171719] lg:block">
+    <div className="min-h-screen bg-[#1d1c1a] text-[#f4f1ea]">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-white/10 bg-[#181715] px-4 py-5 text-[#f4f1ea] lg:block">
         <div className="flex items-center gap-3 px-2">
-          <div className="grid h-10 w-10 place-items-center rounded-md bg-ink text-paper dark:bg-paper dark:text-ink">
+          <div className="grid h-10 w-10 place-items-center rounded-md bg-[#2a2926] text-[#f4f1ea] ring-1 ring-white/10">
             <Bot size={22} />
           </div>
           <div>
-            <p className="text-lg font-semibold">Theo</p>
-            <p className="text-xs uppercase tracking-[0.18em] text-ink/50 dark:text-paper/50">{user?.plan} plan</p>
+            <p className="font-serif text-2xl font-semibold">Theo</p>
+            <p className="text-xs text-[#aaa49a]">{user?.plan} plan</p>
           </div>
         </div>
 
@@ -42,8 +42,8 @@ export function AppLayout() {
               className={({ isActive }) =>
                 `flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition ${
                   isActive
-                    ? "bg-ink text-paper dark:bg-paper dark:text-ink"
-                    : "text-ink/70 hover:bg-line/60 dark:text-paper/70 dark:hover:bg-white/10"
+                    ? "bg-[#2e2d2a] text-[#fffaf0]"
+                    : "text-[#c9c3ba] hover:bg-white/7 hover:text-[#fffaf0]"
                 }`
               }
             >
@@ -54,9 +54,9 @@ export function AppLayout() {
         </nav>
 
         <div className="absolute bottom-5 left-4 right-4 space-y-3">
-          <div className="rounded-md border border-line bg-white p-3 dark:border-white/10 dark:bg-white/5">
+          <div className="rounded-xl border border-white/10 bg-[#22211f] p-3">
             <p className="text-sm font-semibold">{user?.displayName}</p>
-            <p className="truncate text-xs text-ink/50 dark:text-paper/50">{user?.email}</p>
+            <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
           </div>
           <div className="flex gap-2">
             <button className="icon-btn" onClick={() => setDark((value) => !value)} title="Toggle theme">
@@ -79,7 +79,7 @@ export function AppLayout() {
         </button>
       </header>
 
-      <main className="lg:pl-64">
+      <main className="lg:pl-72">
         <Outlet />
       </main>
 
