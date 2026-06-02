@@ -9,13 +9,13 @@ function CodeBlock({ children, className }) {
   const code = String(children).replace(/\n$/, "");
 
   if (!className) {
-    return <code className="rounded bg-ink/10 px-1 py-0.5 dark:bg-white/10">{children}</code>;
+    return <code className="rounded-md bg-[#2b2a27] px-1.5 py-0.5 text-[0.92em] text-[#f4f1ea]">{children}</code>;
   }
 
   return (
     <div className="relative">
       <button
-        className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-md bg-white/90 text-ink shadow-sm"
+        className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg bg-[#f4f1ea] text-[#171614] shadow-sm"
         onClick={() => {
           navigator.clipboard.writeText(code);
           setCopied(true);
@@ -33,7 +33,7 @@ function CodeBlock({ children, className }) {
 export function MarkdownMessage({ content }) {
   return (
     <ReactMarkdown
-      className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto prose-pre:rounded-md prose-pre:bg-[#171719]"
+      className="theo-markdown"
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
       components={{

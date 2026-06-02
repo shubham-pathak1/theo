@@ -185,7 +185,7 @@ export function ChatPage() {
       </header>
 
       <section className="overflow-y-auto px-5 py-6">
-        <div className="mx-auto max-w-3xl space-y-5">
+        <div className="mx-auto max-w-4xl space-y-5">
           {messages.length === 0 && (
             <div className="grid min-h-[calc(100vh-8rem)] place-items-center">
               <div className="w-full">
@@ -211,10 +211,10 @@ export function ChatPage() {
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[86%] rounded-2xl px-4 py-3 ${
+                className={`rounded-2xl px-4 py-3 ${
                   message.role === "user"
-                    ? "bg-[#34322f] text-[#fffaf0]"
-                    : "bg-transparent text-[#f4f1ea]"
+                    ? "max-w-[78%] bg-[#34322f] text-[#fffaf0]"
+                    : "max-w-[92%] bg-transparent text-[#f4f1ea]"
                 }`}
               >
                 {message.role === "model" ? <MarkdownMessage content={message.content || "Thinking..."} /> : <p>{message.content}</p>}

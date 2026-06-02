@@ -1,4 +1,4 @@
-import { Bot, CreditCard, Image, LogOut, MessageSquare, Moon, Settings, Sparkles, Sun, Users } from "lucide-react";
+import { CreditCard, Image, LogOut, MessageSquare, Moon, Settings, Sun, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -24,8 +24,8 @@ export function AppLayout() {
     <div className="min-h-screen bg-[#1d1c1a] text-[#f4f1ea]">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-white/10 bg-[#181715] px-4 py-5 text-[#f4f1ea] lg:block">
         <div className="flex items-center gap-3 px-2">
-          <div className="grid h-10 w-10 place-items-center rounded-md bg-[#2a2926] text-[#f4f1ea] ring-1 ring-white/10">
-            <Bot size={22} />
+          <div className="grid h-10 w-10 place-items-center rounded-md bg-[#2a2926] ring-1 ring-white/10">
+            <img src="/favicon.svg" alt="" className="h-7 w-7" />
           </div>
           <div>
             <p className="font-serif text-2xl font-semibold">Theo</p>
@@ -69,9 +69,9 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-line bg-paper/90 px-4 backdrop-blur dark:border-white/10 dark:bg-ink/90 lg:hidden">
+      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/10 bg-[#181715]/95 px-4 text-[#f4f1ea] backdrop-blur lg:hidden">
         <div className="flex items-center gap-2 font-semibold">
-          <Sparkles size={20} />
+          <img src="/favicon.svg" alt="" className="h-7 w-7" />
           Theo
         </div>
         <button className="icon-btn" onClick={() => setDark((value) => !value)} title="Toggle theme">
@@ -83,14 +83,14 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-paper dark:border-white/10 dark:bg-[#171719] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-white/10 bg-[#181715] lg:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === "/"}
             className={({ isActive }) =>
-              `grid h-16 place-items-center text-xs ${isActive ? "text-clay" : "text-ink/55 dark:text-paper/55"}`
+              `grid h-16 place-items-center text-xs ${isActive ? "text-[#f4f1ea]" : "text-[#aaa49a]"}`
             }
           >
             <item.icon size={20} />

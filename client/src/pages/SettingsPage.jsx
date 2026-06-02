@@ -26,17 +26,17 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 pb-24 lg:px-8 lg:pb-8">
+    <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] lg:px-10 lg:pb-10">
       <div className="mx-auto max-w-4xl">
         <header className="mb-6">
           <h1 className="text-3xl font-semibold">Settings</h1>
-          <p className="mt-2 text-ink/60 dark:text-paper/60">Profile, theme, and persistent chat behavior.</p>
+          <p className="mt-2 text-[#aaa49a]">Profile and persistent chat behavior.</p>
         </header>
 
-        {notice && <p className="mb-4 rounded-md border border-moss/30 bg-moss/10 px-3 py-2 text-sm text-moss">{notice}</p>}
+        {notice && <p className="mb-4 rounded-xl border border-white/10 bg-[#252421] px-3 py-2 text-sm text-[#c9c3ba]">{notice}</p>}
 
         <section className="grid gap-5">
-          <div className="rounded-md border border-line bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <div className="rounded-2xl border border-white/10 bg-[#252421] p-5">
             <h2 className="mb-4 text-xl font-semibold">Profile</h2>
             <div className="grid gap-4">
               <label className="field">
@@ -58,10 +58,10 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-md border border-line bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <div className="rounded-2xl border border-white/10 bg-[#252421] p-5">
             <h2 className="mb-4 text-xl font-semibold">Custom instructions</h2>
             <textarea
-              className="min-h-44 w-full rounded-md border border-line bg-paper px-4 py-3 outline-none focus:border-ocean dark:border-white/10 dark:bg-ink"
+              className="min-h-44 w-full rounded-xl border border-white/10 bg-[#1d1c1a] px-4 py-3 text-[#f4f1ea] outline-none placeholder:text-[#aaa49a] focus:border-white/35"
               value={customInstructions}
               onChange={(event) => setCustomInstructions(event.target.value)}
               placeholder="Tell Theo how to respond across chats"
