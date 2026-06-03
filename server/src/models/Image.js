@@ -13,6 +13,9 @@ const imageSchema = new mongoose.Schema(
       index: true
     },
     jobId: String,
+    provider: String,
+    model: String,
+    providerJobId: String,
     cloudinaryPublicId: String,
     url: String,
     thumbnailUrl: String,

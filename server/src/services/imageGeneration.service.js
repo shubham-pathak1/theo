@@ -1,5 +1,5 @@
 import { Image } from "../models/Image.js";
-import { generateImage } from "./gemini.service.js";
+import { generateImageWithProvider } from "./imageProvider.service.js";
 import { uploadGeneratedImage } from "./storage.service.js";
 import { emitImageStatus } from "./socket.service.js";
 
@@ -17,13 +17,19 @@ export async function processImageGeneration(imageId) {
     image.enhancedPrompt = finalPrompt;
     await image.save();
 
-    const buffer = await generateImage(finalPrompt, { aspectRatio: image.aspectRatio });
-    const uploaded = await uploadGeneratedImage(buffer, {
+    const generated = await generateImageWithProvider(finalPrompt, {
+      aspectRatio: image.aspectRatio,
+      style: image.style
+    });
+    const uploaded = await uploadGeneratedImage(generated.buffer, {
       userId: image.user.toString(),
       imageId: image.id
     });
 
     image.status = "done";
+    image.provider = generated.provider;
+    image.model = generated.model;
+    image.providerJobId = generated.providerJobId;
     image.cloudinaryPublicId = uploaded.publicId;
     image.url = uploaded.url;
     image.thumbnailUrl = uploaded.thumbnailUrl;

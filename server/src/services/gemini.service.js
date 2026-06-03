@@ -63,7 +63,7 @@ export function toGeminiContents(messages) {
   }));
 }
 
-function demoImageBuffer(prompt, aspectRatio = "1:1", note = "Gemini image generation is not available on this plan") {
+export function demoImageBuffer(prompt, aspectRatio = "1:1", note = "Image generation is running in demo mode") {
   const [width, height] = aspectRatio.split(":").map(Number);
   const svgWidth = width >= height ? 1280 : 960;
   const svgHeight = height > width ? 1280 : width === height ? 1024 : 720;
