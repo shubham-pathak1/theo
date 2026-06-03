@@ -7,7 +7,6 @@ import {
   Image,
   MessageSquare,
   Plus,
-  Sparkle,
   Zap
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -40,7 +39,7 @@ const plans = [
       "More image generations",
       "Priority image queue",
       "Custom instructions",
-      "Razorpay subscription billing"
+      "Subscription billing"
     ]
   },
   {
@@ -58,11 +57,110 @@ const plans = [
   }
 ];
 
+const navItems = [
+  { label: "Meet Theo", href: "#top" },
+  {
+    label: "Product",
+    items: [
+      { label: "Chat", note: "Streaming conversations", href: "/" },
+      { label: "Image Studio", note: "Prompt and generate visuals", href: "/images" },
+      { label: "Gallery", note: "Browse published work", href: "/gallery" },
+      { label: "Settings", note: "Profile and instructions", href: "/settings" }
+    ]
+  },
+  {
+    label: "Workspace",
+    items: [
+      { label: "Conversations", note: "Saved chat history", href: "/" },
+      { label: "Image history", note: "Review every request", href: "/images" },
+      { label: "Published work", note: "Curated visual studies", href: "/gallery" },
+      { label: "Usage limits", note: "Plans with refresh windows", href: "/billing" }
+    ]
+  },
+  {
+    label: "Pricing",
+    items: [
+      { label: "Free", note: "Start with the basics", href: "#pricing" },
+      { label: "Pro", note: "More room for daily work", href: "#pricing" },
+      { label: "Max", note: "Highest workspace limits", href: "#pricing" }
+    ]
+  },
+  {
+    label: "Resources",
+    items: [
+      { label: "FAQ", note: "Common questions", href: "#faq" },
+      { label: "Docs", note: "Product notes", href: "/docs" },
+      { label: "Examples", note: "Ways to use Theo", href: "/examples" },
+      { label: "Changelog", note: "Recent improvements", href: "/changelog" },
+      { label: "Support", note: "Get help", href: "/support" }
+    ]
+  }
+];
+
 const footerColumns = [
-  ["Product", "Chat", "Image Studio", "Gallery", "Pricing", "Settings"],
-  ["Platform", "Gemini", "BullMQ", "Redis limits", "Cloudinary", "Razorpay"],
-  ["Resources", "Docs", "API status", "Examples", "Changelog", "Support"],
-  ["Company", "About", "Security", "Terms", "Privacy", "Contact"]
+  {
+    title: "Product",
+    links: [
+      { label: "Chat", href: "/" },
+      { label: "Image Studio", href: "/images" },
+      { label: "Gallery", href: "/gallery" },
+      { label: "Pricing", href: "#pricing" },
+      { label: "Settings", href: "/settings" }
+    ]
+  },
+  {
+    title: "Workspace",
+    links: [
+      { label: "Conversations", href: "/" },
+      { label: "Image history", href: "/images" },
+      { label: "Published work", href: "/gallery" },
+      { label: "Usage limits", href: "/billing" },
+      { label: "Account", href: "/settings" }
+    ]
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Docs", href: "/docs" },
+      { label: "Status", href: "/status" },
+      { label: "Examples", href: "/examples" },
+      { label: "Changelog", href: "/changelog" },
+      { label: "Support", href: "/support" }
+    ]
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "About", href: "/about" },
+      { label: "Security", href: "/security" },
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Contact", href: "/contact" }
+    ]
+  }
+];
+
+const faqItems = [
+  {
+    question: "What is Theo and how does it work?",
+    answer:
+      "Theo is a focused AI workspace for chat, image prompts, saved conversations, and published visual work. You sign in, start a conversation or image request, and Theo keeps the output organized in your workspace."
+  },
+  {
+    question: "What should I use Theo for?",
+    answer:
+      "Use it for brainstorming, writing, code questions, product planning, prompt drafting, and keeping visual ideas in one place instead of scattering them across separate tools."
+  },
+  {
+    question: "How much does it cost to use?",
+    answer:
+      "Theo has a free plan for testing the workspace and paid-style Pro and Max plans for higher limits. Usage refreshes in windows so the product stays predictable while you work."
+  },
+  {
+    question: "Can I publish generated images?",
+    answer:
+      "Yes. Completed images can be saved to your history and published to the gallery when you want to share a polished output."
+  }
 ];
 
 export function AuthPage() {
@@ -75,6 +173,8 @@ export function AuthPage() {
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("Checking Google Sign-In...");
   const [googleClientId, setGoogleClientId] = useState("");
+  const [openMenu, setOpenMenu] = useState("");
+  const [openFaq, setOpenFaq] = useState(0);
   const googleButtonRef = useRef(null);
 
   useEffect(() => {
@@ -249,16 +349,45 @@ export function AuthPage() {
     <div className="min-h-screen bg-[#11110f] text-[#f6f1e8]">
       <header className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
         <a href="#top" className="flex items-center gap-2 text-xl font-semibold">
-          <Sparkle className="text-[#d9895f]" size={21} fill="currentColor" />
+          <img src="/favicon.svg" alt="" className="h-6 w-6" />
           Theo
         </a>
 
-        <nav className="hidden items-center gap-7 text-sm text-[#f6f1e8]/70 lg:flex">
-          {["Meet Theo", "Platform", "Solutions", "Pricing", "Resources"].map((item) => (
-            <a key={item} href={item === "Pricing" ? "#pricing" : "#top"} className="inline-flex items-center gap-1 hover:text-[#f6f1e8]">
-              {item}
-              <ChevronDown size={13} />
-            </a>
+        <nav className="relative hidden items-center gap-7 text-sm text-[#f6f1e8]/70 lg:flex">
+          {navItems.map((item) => (
+            item.items ? (
+              <div key={item.label} className="relative">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 transition hover:text-[#f6f1e8]"
+                  onClick={() => setOpenMenu(openMenu === item.label ? "" : item.label)}
+                >
+                  {item.label}
+                  <ChevronDown className={`transition ${openMenu === item.label ? "rotate-180" : ""}`} size={13} />
+                </button>
+                {openMenu === item.label && (
+                  <div className="absolute left-0 top-8 z-30 w-72 rounded-xl border border-white/10 bg-[#1f1e1b] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
+                    <div className="space-y-1">
+                      {item.items.map((link) => (
+                        <a
+                          key={link.label}
+                          href={link.href}
+                          className="block rounded-lg px-3 py-2.5 transition hover:bg-white/7 hover:text-white"
+                          onClick={() => setOpenMenu("")}
+                        >
+                          <span className="block text-sm font-semibold text-[#f6f1e8]">{link.label}</span>
+                          <span className="mt-0.5 block text-xs text-[#f6f1e8]/45">{link.note}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <a key={item.label} href={item.href} className="transition hover:text-[#f6f1e8]">
+                {item.label}
+              </a>
+            )
           ))}
         </nav>
 
@@ -391,7 +520,7 @@ export function AuthPage() {
                 <PreviewRow icon={Code2} text="Explain refresh token rotation" active />
                 <PreviewRow icon={Image} text="Generate cinematic app hero image" active />
                 <PreviewRow icon={Bot} text="Analyze subscription usage limits" loading />
-                <PreviewRow icon={Zap} text="Refactor BullMQ worker flow" active />
+                <PreviewRow icon={Zap} text="Refine image queue flow" active />
               </div>
             </div>
           </div>
@@ -438,19 +567,23 @@ export function AuthPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-2xl px-5 pb-28">
+        <section id="faq" className="mx-auto max-w-2xl px-5 pb-28">
           <h2 className="text-center font-serif text-3xl">Frequently asked questions</h2>
           <div className="mt-8 divide-y divide-white/10">
-            {[
-              "What is Theo and how does it work?",
-              "What should I use Theo for?",
-              "How much does it cost to use?",
-              "Can I publish generated images?"
-            ].map((question) => (
-              <button key={question} className="flex w-full items-center justify-between py-4 text-left font-serif text-xl text-[#f6f1e8]/82">
-                {question}
-                <Plus size={18} />
-              </button>
+            {faqItems.map((item, index) => (
+              <div key={item.question}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-6 py-4 text-left font-serif text-xl text-[#f6f1e8]/82"
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                >
+                  {item.question}
+                  <Plus className={`shrink-0 transition ${openFaq === index ? "rotate-45" : ""}`} size={18} />
+                </button>
+                {openFaq === index && (
+                  <p className="pb-5 text-sm leading-6 text-[#f6f1e8]/55">{item.answer}</p>
+                )}
+              </div>
             ))}
           </div>
         </section>
@@ -460,21 +593,20 @@ export function AuthPage() {
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.2fr_3fr]">
           <div className="flex min-h-72 flex-col justify-between">
             <a href="#top" className="flex items-center gap-2 text-xl font-semibold">
-              <Sparkle className="text-[#d9895f]" size={21} fill="currentColor" />
+              <img src="/favicon.svg" alt="" className="h-7 w-7" />
               Theo
             </a>
-            <p className="text-xs uppercase tracking-[0.18em] text-white/50">Built as a full-stack AI SaaS</p>
           </div>
 
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-            {footerColumns.map(([title, ...links]) => (
-              <div key={title}>
-                <h3 className="mb-4 text-sm font-semibold text-white/70">{title}</h3>
+            {footerColumns.map((column) => (
+              <div key={column.title}>
+                <h3 className="mb-4 text-sm font-semibold text-white/70">{column.title}</h3>
                 <ul className="space-y-3 text-sm text-white/45">
-                  {links.map((link) => (
-                    <li key={link}>
-                      <a href="#top" className="hover:text-white">
-                        {link}
+                  {column.links.map((link) => (
+                    <li key={link.label}>
+                      <a href={link.href} className="hover:text-white">
+                        {link.label}
                       </a>
                     </li>
                   ))}

@@ -5,6 +5,7 @@ import { BillingPage } from "./pages/BillingPage.jsx";
 import { ChatPage } from "./pages/ChatPage.jsx";
 import { GalleryPage } from "./pages/GalleryPage.jsx";
 import { ImagesPage } from "./pages/ImagesPage.jsx";
+import { InfoPage } from "./pages/InfoPage.jsx";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage.jsx";
@@ -28,6 +29,16 @@ export function App() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/about" element={<InfoPage page="about" />} />
+      <Route path="/security" element={<InfoPage page="security" />} />
+      <Route path="/terms" element={<InfoPage page="terms" />} />
+      <Route path="/privacy" element={<InfoPage page="privacy" />} />
+      <Route path="/contact" element={<InfoPage page="contact" />} />
+      <Route path="/docs" element={<InfoPage page="docs" />} />
+      <Route path="/status" element={<InfoPage page="status" />} />
+      <Route path="/examples" element={<InfoPage page="examples" />} />
+      <Route path="/changelog" element={<InfoPage page="changelog" />} />
+      <Route path="/support" element={<InfoPage page="support" />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
