@@ -51,6 +51,13 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         return data;
       },
+      async resendVerification() {
+        const data = await api.post("/api/auth/resend-verification", {});
+        if (data.user) {
+          setUser(data.user);
+        }
+        return data;
+      },
       async logout() {
         await api.post("/api/auth/logout", {});
         setAccessToken("");

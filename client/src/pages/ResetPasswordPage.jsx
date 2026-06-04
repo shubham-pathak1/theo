@@ -6,18 +6,32 @@ export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const token = params.get("token") || "";
 
   async function submit(event) {
     event.preventDefault();
     setNotice("");
+    setSuccess(false);
+
+    if (!token) {
+      setNotice("Reset token missing. Request a new password reset link.");
+      return;
+    }
+
+    setBusy(true);
     try {
       await api.post("/api/auth/reset-password", {
-        token: params.get("token") || "",
+        token,
         password
       });
+      setSuccess(true);
       setNotice("Password updated. You can sign in now.");
     } catch (error) {
       setNotice(error.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -34,8 +48,14 @@ export function ResetPasswordPage() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        {notice && <p className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/75">{notice}</p>}
-        <button className="mt-5 h-11 w-full rounded-md bg-[#f4f1ea] text-sm font-semibold text-black">Update password</button>
+        {notice && (
+          <p className={`mt-4 rounded-md border px-3 py-2 text-sm ${success ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-white/5 text-white/75"}`}>
+            {notice}
+          </p>
+        )}
+        <button className="mt-5 h-11 w-full rounded-md bg-[#f4f1ea] text-sm font-semibold text-black disabled:opacity-60" disabled={busy || !password}>
+          {busy ? "Updating" : "Update password"}
+        </button>
         <Link className="mt-4 block text-center text-sm text-white/55 hover:text-white" to="/auth">
           Back to sign in
         </Link>

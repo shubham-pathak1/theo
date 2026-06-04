@@ -12,13 +12,29 @@ const navItems = [
 ];
 
 export function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, resendVerification } = useAuth();
   const [dark, setDark] = useState(() => localStorage.getItem("theo_theme") !== "light");
+  const [verificationNotice, setVerificationNotice] = useState("");
+  const [verificationBusy, setVerificationBusy] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theo_theme", dark ? "dark" : "light");
   }, [dark]);
+
+  async function resendVerificationEmail() {
+    setVerificationNotice("");
+    setVerificationBusy(true);
+
+    try {
+      const data = await resendVerification();
+      setVerificationNotice(data.devVerificationUrl || data.message || "Verification link sent.");
+    } catch (error) {
+      setVerificationNotice(error.message || "Could not send verification link.");
+    } finally {
+      setVerificationBusy(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#1d1c1a] text-[#f4f1ea]">
@@ -80,6 +96,29 @@ export function AppLayout() {
       </header>
 
       <main className="lg:pl-72">
+        {user && !user.emailVerified && (
+          <div className="border-b border-[#d9895f]/20 bg-[#2a211c] px-4 py-3 text-sm text-[#f0c2a6] lg:px-10">
+            <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Verify your email to keep account recovery and security notices active.
+                {verificationNotice?.startsWith("http") && (
+                  <a className="ml-1 break-all font-semibold underline" href={verificationNotice}>
+                    Open verification link
+                  </a>
+                )}
+                {verificationNotice && !verificationNotice.startsWith("http") && <span className="ml-1">{verificationNotice}</span>}
+              </p>
+              <button
+                type="button"
+                className="h-9 rounded-md bg-[#f4f1ea] px-3 text-xs font-semibold text-[#181715] disabled:opacity-60"
+                onClick={resendVerificationEmail}
+                disabled={verificationBusy}
+              >
+                {verificationBusy ? "Sending" : "Resend link"}
+              </button>
+            </div>
+          </div>
+        )}
         <Outlet />
       </main>
 

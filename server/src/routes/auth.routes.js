@@ -49,9 +49,34 @@ const googleSchema = z.object({
   })
 });
 
+function createVerificationToken(user) {
+  const token = randomToken();
+  user.verificationTokenHash = hashToken(token);
+  user.verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  return token;
+}
+
+async function sendVerification(user, token) {
+  const verifyUrl = `${env.CLIENT_URL}/verify-email?token=${token}`;
+  try {
+    await sendMail({
+      to: user.email,
+      subject: "Verify your Theo account",
+      html: verificationEmail(verifyUrl)
+    });
+  } catch (error) {
+    console.warn("Verification email could not be sent:", error.message);
+  }
+
+  return verifyUrl;
+}
+
 async function issueSession(user, res) {
   const accessToken = signAccessToken(user);
   const refresh = createRefreshToken();
+  user.refreshTokens = user.refreshTokens
+    .filter((entry) => entry.expiresAt > new Date())
+    .slice(-9);
   user.refreshTokens.push({
     tokenHash: refresh.tokenHash,
     expiresAt: refresh.expiresAt
@@ -86,26 +111,22 @@ authRouter.post(
       throw new ApiError(409, "Email is already registered");
     }
 
-    const verificationToken = randomToken();
     const user = await User.create({
       email: userEmail,
       displayName,
-      passwordHash: await bcrypt.hash(rawPassword, 12),
-      verificationTokenHash: hashToken(verificationToken)
+      passwordHash: await bcrypt.hash(rawPassword, 12)
     });
+    const verificationToken = createVerificationToken(user);
+    await user.save();
 
-    const verifyUrl = `${env.CLIENT_URL}/verify-email?token=${verificationToken}`;
-    await sendMail({
-      to: user.email,
-      subject: "Verify your Theo account",
-      html: verificationEmail(verifyUrl)
-    });
+    const verifyUrl = await sendVerification(user, verificationToken);
 
     const accessToken = await issueSession(user, res);
     res.status(201).json({
       user: publicUser(user),
       accessToken,
-      devVerificationToken: env.NODE_ENV === "production" ? undefined : verificationToken
+      devVerificationToken: env.NODE_ENV === "production" ? undefined : verificationToken,
+      devVerificationUrl: env.NODE_ENV === "production" ? undefined : verifyUrl
     });
   })
 );
@@ -179,18 +200,44 @@ authRouter.post(
   validate(tokenSchema),
   asyncHandler(async (req, res) => {
     const user = await User.findOne({
-      verificationTokenHash: hashToken(req.validated.body.token)
+      verificationTokenHash: hashToken(req.validated.body.token),
+      $or: [
+        { verificationTokenExpiresAt: { $exists: false } },
+        { verificationTokenExpiresAt: null },
+        { verificationTokenExpiresAt: { $gt: new Date() } }
+      ]
     });
 
     if (!user) {
-      throw new ApiError(400, "Invalid verification token");
+      throw new ApiError(400, "Invalid or expired verification token");
     }
 
     user.emailVerified = true;
     user.verificationTokenHash = undefined;
+    user.verificationTokenExpiresAt = undefined;
     await user.save();
 
     res.json({ user: publicUser(user) });
+  })
+);
+
+authRouter.post(
+  "/resend-verification",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.emailVerified) {
+      res.json({ message: "Email is already verified", user: publicUser(req.user) });
+      return;
+    }
+
+    const token = createVerificationToken(req.user);
+    await req.user.save();
+    const verifyUrl = await sendVerification(req.user, token);
+
+    res.json({
+      message: "Verification link sent",
+      devVerificationUrl: env.NODE_ENV === "production" ? undefined : verifyUrl
+    });
   })
 );
 
@@ -265,6 +312,16 @@ authRouter.post(
     if (!user) {
       clearRefreshCookie(res);
       throw new ApiError(401, "Invalid refresh token");
+    }
+
+    const currentToken = user.refreshTokens.find((entry) => entry.tokenHash === tokenHash);
+    if (!currentToken || currentToken.expiresAt <= new Date()) {
+      user.refreshTokens = user.refreshTokens.filter(
+        (entry) => entry.tokenHash !== tokenHash && entry.expiresAt > new Date()
+      );
+      await user.save();
+      clearRefreshCookie(res);
+      throw new ApiError(401, "Refresh session expired");
     }
 
     user.refreshTokens = user.refreshTokens.filter(

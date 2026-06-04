@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
     plan: { type: String, enum: ["free", "pro", "max"], default: "free" },
     emailVerified: { type: Boolean, default: false },
     verificationTokenHash: String,
+    verificationTokenExpiresAt: Date,
     passwordResetTokenHash: String,
     passwordResetExpiresAt: Date,
     customInstructions: { type: String, default: "" },

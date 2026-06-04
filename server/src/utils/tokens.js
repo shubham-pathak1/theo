@@ -4,6 +4,12 @@ import { hashToken, randomToken } from "./crypto.js";
 
 const accessTtl = "15m";
 const refreshDays = 30;
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/"
+};
 
 export function signAccessToken(user) {
   return jwt.sign(
@@ -21,15 +27,11 @@ export function createRefreshToken() {
 
 export function setRefreshCookie(res, token) {
   res.cookie("theo_refresh", token, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    ...refreshCookieOptions,
     maxAge: refreshDays * 24 * 60 * 60 * 1000,
-    path: "/"
   });
 }
 
 export function clearRefreshCookie(res) {
-  res.clearCookie("theo_refresh", { path: "/" });
-  res.clearCookie("theo_refresh", { path: "/api/auth/refresh" });
+  res.clearCookie("theo_refresh", refreshCookieOptions);
 }
