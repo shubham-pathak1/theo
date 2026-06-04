@@ -1,4 +1,4 @@
-import { Download, ImagePlus, RotateCcw, Upload, X } from "lucide-react";
+import { Download, ImagePlus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "../lib/api.js";
@@ -61,37 +61,54 @@ export function ImagesPage() {
   }
 
   async function publish(id) {
-    const { image } = await api.post(`/api/images/${id}/publish`, {});
-    setImages((items) => items.map((item) => (item._id === id ? image : item)));
+    await runImageAction(id, "publish", async () => {
+      const { image } = await api.post(`/api/images/${id}/publish`, {});
+      setImages((items) => items.map((item) => (item._id === id ? image : item)));
+    });
+  }
+
+  async function unpublish(id) {
+    await runImageAction(id, "unpublish", async () => {
+      const { image } = await api.post(`/api/images/${id}/unpublish`, {});
+      setImages((items) => items.map((item) => (item._id === id ? image : item)));
+    });
+  }
+
+  async function deleteImage(id) {
+    if (!window.confirm("Delete this image request?")) return;
+
+    await runImageAction(id, "delete", async () => {
+      await api.delete(`/api/images/${id}`);
+      setImages((items) => items.filter((item) => item._id !== id));
+    });
+  }
+
+  async function runImageAction(id, action, callback) {
+    setError("");
+    setActionBusy((state) => ({ ...state, [id]: action }));
+
+    try {
+      await callback();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionBusy((state) => ({ ...state, [id]: "" }));
+    }
   }
 
   async function retryImage(id) {
-    setError("");
-    setActionBusy((state) => ({ ...state, [id]: "retry" }));
-
-    try {
+    await runImageAction(id, "retry", async () => {
       const { image } = await api.post(`/api/images/${id}/retry`, {});
       setImages((items) => items.map((item) => (item._id === id ? image : item)));
       socket.emit("image:watch", image._id);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setActionBusy((state) => ({ ...state, [id]: "" }));
-    }
+    });
   }
 
   async function cancelImage(id) {
-    setError("");
-    setActionBusy((state) => ({ ...state, [id]: "cancel" }));
-
-    try {
+    await runImageAction(id, "cancel", async () => {
       const { image } = await api.post(`/api/images/${id}/cancel`, {});
       setImages((items) => items.map((item) => (item._id === id ? image : item)));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setActionBusy((state) => ({ ...state, [id]: "" }));
-    }
+    });
   }
 
   return (
@@ -152,7 +169,7 @@ export function ImagesPage() {
               <ImagePreview image={image} />
               <div className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <StatusPill status={image.status} />
+                  <StatusPill status={image.status} published={image.published} />
                   <span className="text-xs text-[#8f887f]">{formatDate(image.createdAt)}</span>
                 </div>
                 <p className="min-h-12 text-sm leading-6 text-[#f4f1ea]">{image.prompt}</p>
@@ -186,8 +203,18 @@ export function ImagesPage() {
                       <Download size={17} />
                     </button>
                   )}
-                  <button className="icon-btn" onClick={() => publish(image._id)} disabled={image.status !== "done"} title="Publish">
-                    <Upload size={17} />
+                  {image.status === "done" && !image.published && (
+                    <button className="icon-btn" onClick={() => publish(image._id)} disabled={actionBusy[image._id] === "publish"} title="Publish">
+                      <Upload size={17} />
+                    </button>
+                  )}
+                  {image.status === "done" && image.published && (
+                    <button className="icon-btn" onClick={() => unpublish(image._id)} disabled={actionBusy[image._id] === "unpublish"} title="Unpublish">
+                      <X size={17} />
+                    </button>
+                  )}
+                  <button className="icon-btn" onClick={() => deleteImage(image._id)} disabled={actionBusy[image._id] === "delete"} title="Delete">
+                    <Trash2 size={17} />
                   </button>
                 </div>
               </div>
@@ -234,10 +261,12 @@ function ImagePreview({ image }) {
   );
 }
 
-function StatusPill({ status }) {
-  const label = status === "done" ? "Ready" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : titleCase(status);
+function StatusPill({ status, published }) {
+  const label = published ? "Published" : status === "done" ? "Ready" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : titleCase(status);
   const tone =
-    status === "done"
+    published
+      ? "text-sky-200"
+      : status === "done"
       ? "text-emerald-200"
       : status === "failed" || status === "cancelled"
         ? "text-[#efb18d]"

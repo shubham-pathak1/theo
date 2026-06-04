@@ -59,6 +59,18 @@ export async function uploadGeneratedImage(buffer, { userId, imageId }) {
   };
 }
 
+export async function deleteGeneratedImageAsset(image) {
+  if (!image?.cloudinaryPublicId) return;
+
+  if (image.cloudinaryPublicId.startsWith("local/")) {
+    await deleteLocalGeneratedFiles(image.cloudinaryPublicId);
+    return;
+  }
+
+  if (!hasCloudinary()) return;
+  await cloudinary.uploader.destroy(image.cloudinaryPublicId, { resource_type: "image" });
+}
+
 export async function cleanupOldLocalGeneratedFiles() {
   if (hasCloudinary()) return { deleted: 0 };
 
@@ -96,6 +108,19 @@ export async function cleanupOldLocalGeneratedFiles() {
 
   await walk(rootDir);
   return { deleted };
+}
+
+async function deleteLocalGeneratedFiles(publicId) {
+  const [, userId, imageId] = publicId.split("/");
+  if (!userId || !imageId) return;
+
+  const directory = path.resolve(process.cwd(), "uploads", "generated", userId);
+  const extensions = ["png", "svg", "jpg", "jpeg", "webp"];
+
+  await Promise.all(
+    extensions.map((extension) => fs.rm(path.join(directory, `${imageId}.${extension}`), { force: true }))
+  );
+  await removeEmptyDirectory(directory).catch(() => null);
 }
 
 async function removeEmptyDirectory(directory) {

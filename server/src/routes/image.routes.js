@@ -8,6 +8,7 @@ import { imageQueue } from "../queues/image.queue.js";
 import { consumeUsage } from "../services/usage.service.js";
 import { processImageGeneration } from "../services/imageGeneration.service.js";
 import { emitImageStatus } from "../services/socket.service.js";
+import { deleteGeneratedImageAsset } from "../services/storage.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -158,5 +159,44 @@ imageRouter.post(
     await image.save();
 
     res.json({ image });
+  })
+);
+
+imageRouter.post(
+  "/:id/unpublish",
+  validate(imageParams),
+  asyncHandler(async (req, res) => {
+    const image = await Image.findOne({ _id: req.validated.params.id, user: req.user.id });
+
+    if (!image) {
+      throw new ApiError(404, "Image not found");
+    }
+
+    image.published = false;
+    await image.save();
+
+    res.json({ image });
+  })
+);
+
+imageRouter.delete(
+  "/:id",
+  validate(imageParams),
+  asyncHandler(async (req, res) => {
+    const image = await Image.findOne({ _id: req.validated.params.id, user: req.user.id });
+
+    if (!image) {
+      throw new ApiError(404, "Image not found");
+    }
+
+    if (imageQueue && image.jobId && !image.jobId.startsWith("memory_")) {
+      const job = await imageQueue.getJob(image.jobId);
+      await job?.remove().catch(() => null);
+    }
+
+    await deleteGeneratedImageAsset(image);
+    await image.deleteOne();
+
+    res.json({ deleted: true, id: image.id });
   })
 );
