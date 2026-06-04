@@ -87,9 +87,20 @@ CLOUDINARY_API_SECRET=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
+RAZORPAY_PRO_PLAN_ID=
+RAZORPAY_MAX_PLAN_ID=
 SMTP_HOST=
 SMTP_USER=
 SMTP_PASS=
+```
+
+Razorpay subscriptions:
+
+```text
+1. Create Pro and Max subscription plans in the Razorpay dashboard.
+2. Add their plan IDs to RAZORPAY_PRO_PLAN_ID and RAZORPAY_MAX_PLAN_ID.
+3. Add a webhook pointing to /api/billing/webhook.
+4. Use the same webhook secret in RAZORPAY_WEBHOOK_SECRET.
 ```
 
 ## Running Separately
