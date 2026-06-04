@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import { createApp } from "./app.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
+import { connectRedis } from "./config/redis.js";
 import { initSocket } from "./services/socket.service.js";
 import { startImageWorker } from "./workers/image.worker.js";
 
@@ -17,8 +18,9 @@ const io = new Server(server, {
 
 initSocket(io);
 await connectDb();
+await connectRedis();
 
-if (process.env.START_WORKER !== "false") {
+if (env.START_WORKER) {
   await startImageWorker();
 }
 

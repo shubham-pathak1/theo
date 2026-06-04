@@ -7,6 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 dotenv.config();
 
+const envBoolean = (defaultValue = false) =>
+  z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+    return value;
+  }, z.boolean().default(defaultValue));
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().default(5000),
@@ -14,7 +22,11 @@ const envSchema = z.object({
   SERVER_URL: z.string().url().default("http://localhost:5000"),
   MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/theo"),
   REDIS_URL: z.string().optional().default(""),
-  ENABLE_REDIS: z.coerce.boolean().default(false),
+  ENABLE_REDIS: envBoolean(false),
+  START_WORKER: envBoolean(true),
+  IMAGE_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  IMAGE_QUEUE_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  IMAGE_QUEUE_BACKOFF_MS: z.coerce.number().int().positive().default(5000),
   JWT_ACCESS_SECRET: z.string().default("dev-access-secret"),
   JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret"),
   COOKIE_SECRET: z.string().default("dev-cookie-secret"),
@@ -33,7 +45,7 @@ const envSchema = z.object({
   THEO_CONTEXT_RECENT_MESSAGES: z.coerce.number().default(12),
   THEO_COMPACT_AFTER_MESSAGES: z.coerce.number().default(18),
   USAGE_WINDOW_HOURS: z.coerce.number().default(5),
-  DEMO_MODE: z.coerce.boolean().default(false),
+  DEMO_MODE: envBoolean(false),
   CLOUDINARY_CLOUD_NAME: z.string().optional().default(""),
   CLOUDINARY_API_KEY: z.string().optional().default(""),
   CLOUDINARY_API_SECRET: z.string().optional().default(""),

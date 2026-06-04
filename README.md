@@ -1,91 +1,52 @@
 # Theo
 
-Theo is a full-stack AI workspace for chat, image generation, gallery publishing, usage tracking, and subscription-style plans. It is built as a portfolio-grade SaaS project with a React frontend, Express backend, MongoDB persistence, Gemini-powered AI features, and practical local fallbacks for development.
+Theo is a full-stack AI workspace for chat, image generation, saved history, gallery publishing, usage limits, and subscription plans.
+
+## Stack
+
+- **Client:** React, Vite, Tailwind CSS, React Router, Socket.io client
+- **Server:** Node.js, Express.js, MongoDB, Mongoose
+- **Auth:** JWT access tokens, refresh cookies, Google Sign-In
+- **AI:** Gemini chat models, Cloudflare Workers AI image generation
+- **Queue:** BullMQ with Redis, in-memory fallback for local development
+- **Storage:** Cloudinary or local generated-image storage
+- **Payments:** Razorpay subscription flow with demo fallback
 
 ## Features
 
-- Email/password authentication with JWT access tokens and refresh cookies
-- Google Sign-In support using Google OAuth client ID
-- AI chat with conversation history stored in MongoDB
-- Model tiers: Theo Low, Theo Medium, Theo High, and Theo XHigh
-- Long-chat handling with compacted conversation memory
-- Image generation workflow with queue support and local fallback output
-- User gallery with publish, save, and like flows
-- Usage limits with 5-hour reset windows
+- Email/password auth, Google auth, password reset, email verification
+- Streaming AI chat with saved conversations
+- Theo model tiers: Low, Medium, High, XHigh
+- Context compaction for longer chats
+- Image generation queue with retry/backoff
+- Generation history and gallery publishing
+- Usage windows with plan-based limits
 - Free, Pro, and Max plan structure
-- Razorpay subscription flow with local demo upgrade fallback
-- Profile settings and persistent custom chat instructions
-
-## Tech Stack
-
-**Frontend**
-
-- React
-- Vite
-- Tailwind CSS
-- React Router
-- Socket.io client
-
-**Backend**
-
-- Node.js
-- Express.js
-- MongoDB
-- Mongoose
-- JWT authentication
-- Cookie-based refresh sessions
-
-**AI and Integrations**
-
-- Gemini API for chat
-- Gemini/Imagen workflow for image generation
-- BullMQ and Redis for queue support
-- Cloudinary for generated image storage
-- Razorpay for subscription payments
-- Nodemailer for email flows
+- Profile settings and custom chat instructions
 
 ## Local Setup
 
-Install dependencies:
-
 ```bash
 npm install
-```
-
-Create a real environment file:
-
-```bash
 cp .env.example .env
-```
-
-Start both frontend and backend:
-
-```bash
 npm run dev
 ```
 
-Or run them separately:
-
-```bash
-npm run dev --workspace server
-npm run dev --workspace client
-```
-
-Frontend:
+Client:
 
 ```text
 http://localhost:5173
 ```
 
-Backend:
+API:
 
 ```text
 http://localhost:5000
 ```
 
-## Environment Variables
+## Environment
 
-Minimum required for normal local use:
+Minimum local values:
 
 ```env
 MONGODB_URI=
@@ -95,56 +56,71 @@ COOKIE_SECRET=
 GEMINI_API_KEY=
 ```
 
-Optional integrations:
+Redis queue:
+
+```env
+ENABLE_REDIS=true
+REDIS_URL=redis://default:PASSWORD@HOST:PORT
+START_WORKER=true
+IMAGE_WORKER_CONCURRENCY=2
+IMAGE_QUEUE_ATTEMPTS=3
+IMAGE_QUEUE_BACKOFF_MS=5000
+```
+
+Image provider:
+
+```env
+IMAGE_PROVIDER=cloudflare
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_IMAGE_MODEL=@cf/stabilityai/stable-diffusion-xl-base-1.0
+```
+
+Optional services:
 
 ```env
 GOOGLE_CLIENT_ID=
-REDIS_URL=
-ENABLE_REDIS=false
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
 SMTP_HOST=
 SMTP_USER=
 SMTP_PASS=
 ```
 
-## Google Sign-In Setup
+## Running Separately
 
-Create a Google OAuth client of type **Web application**.
+API only:
 
-Add this authorized JavaScript origin:
-
-```text
-http://localhost:5173
+```bash
+npm run dev:server
 ```
 
-Add this redirect URI for the popup fallback:
+Client only:
 
-```text
-http://localhost:5173/auth
+```bash
+npm run dev:client
 ```
 
-Then set:
+Image worker only:
+
+```bash
+npm run worker:image
+```
+
+For a separate worker process, set this on the API process:
 
 ```env
-GOOGLE_CLIENT_ID=your_google_web_client_id
+START_WORKER=false
 ```
-
-Restart the backend after changing `.env`.
 
 ## Development Fallbacks
 
-Theo is designed to remain usable during local development:
-
-- If Redis is disabled, usage tracking and image jobs use in-memory fallback behavior.
-- If Cloudinary is missing, generated images are stored locally under `server/uploads`.
-- If paid image generation is unavailable, Theo creates a local preview image instead of failing.
-- If Razorpay is not configured, plan upgrades use a local demo activation flow.
-- If SMTP is missing, password reset links are returned in development mode.
-
-## Notes
-
-MongoDB is required for authentication, chat history, users, images, and settings. If using MongoDB Atlas, make sure your current IP address is allowed in **Network Access**.
+- Redis disabled: usage and image jobs use local memory fallback.
+- Cloudinary missing: generated images are stored under `server/uploads`.
+- Cloudflare missing in development: image requests return a local demo preview.
+- Razorpay missing: billing can use demo plan activation.
+- SMTP missing: reset links are returned in development responses.
