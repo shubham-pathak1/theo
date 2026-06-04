@@ -53,6 +53,8 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional().default(""),
   RAZORPAY_KEY_SECRET: z.string().optional().default(""),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(""),
+  RAZORPAY_PRO_PLAN_ID: z.string().optional().default(""),
+  RAZORPAY_MAX_PLAN_ID: z.string().optional().default(""),
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional().default(""),

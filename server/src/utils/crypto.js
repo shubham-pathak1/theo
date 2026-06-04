@@ -15,3 +15,11 @@ export function verifyWebhookSignature(payload, signature, secret) {
   }
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
+
+export function verifySignature(message, signature, secret) {
+  const expected = crypto.createHmac("sha256", secret).update(message).digest("hex");
+  if (!signature || expected.length !== signature.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
