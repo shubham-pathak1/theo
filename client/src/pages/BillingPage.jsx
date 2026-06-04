@@ -37,10 +37,35 @@ const plans = [
   }
 ];
 
+function loadRazorpayCheckout() {
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector("script[data-razorpay-checkout]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Razorpay Checkout could not load.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.razorpayCheckout = "true";
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error("Razorpay Checkout could not load."));
+    document.body.appendChild(script);
+  });
+}
+
 export function BillingPage() {
   const { user, updateUser } = useAuth();
   const [usage, setUsage] = useState(null);
   const [notice, setNotice] = useState("");
+  const [busyPlan, setBusyPlan] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     api.get("/api/billing/usage").then(setUsage);
@@ -48,13 +73,78 @@ export function BillingPage() {
 
   async function subscribe(plan) {
     if (plan === "free") return;
+    setBusyPlan(plan);
+    setNotice("");
+
     try {
       const data = await api.post("/api/billing/subscribe", { plan });
-      updateUser({ plan });
-      setNotice(data.demo ? data.message : `Razorpay subscription created: ${data.subscription.id}`);
+      if (data.demo) {
+        updateUser(data.user || { plan });
+        setNotice(data.message);
+        api.get("/api/billing/usage").then(setUsage);
+        return;
+      }
+
+      await loadRazorpayCheckout();
+      await new Promise((resolve, reject) => {
+        const checkout = new window.Razorpay({
+          key: data.keyId,
+          name: "Theo",
+          description: `${plan.toUpperCase()} plan subscription`,
+          subscription_id: data.subscription.id,
+          prefill: {
+            name: user?.displayName || "",
+            email: user?.email || ""
+          },
+          theme: {
+            color: "#181715"
+          },
+          handler: async (response) => {
+            try {
+              const verified = await api.post("/api/billing/verify", {
+                plan,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySubscriptionId: response.razorpay_subscription_id,
+                razorpaySignature: response.razorpay_signature
+              });
+              updateUser(verified.user || { plan });
+              setNotice(verified.message || `${plan} plan activated`);
+              api.get("/api/billing/usage").then(setUsage);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error("Checkout closed before payment was completed."))
+          }
+        });
+
+        checkout.on("payment.failed", (response) => {
+          reject(new Error(response.error?.description || "Razorpay payment failed."));
+        });
+
+        checkout.open();
+      });
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setBusyPlan("");
+    }
+  }
+
+  async function cancelPlan() {
+    setCancelling(true);
+    setNotice("");
+    try {
+      const data = await api.post("/api/billing/cancel", {});
+      updateUser(data.user || { plan: "free" });
+      setNotice(data.message || "Subscription cancelled");
       api.get("/api/billing/usage").then(setUsage);
     } catch (err) {
       setNotice(err.message);
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -71,6 +161,16 @@ export function BillingPage() {
           <div className="rounded-2xl border border-white/10 bg-[#22211f] px-4 py-3">
             <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">Current plan</p>
             <p className="mt-1 text-2xl font-semibold capitalize">{user?.plan || "free"}</p>
+            {user?.plan !== "free" && (
+              <button
+                type="button"
+                className="mt-3 text-sm font-semibold text-[#d9895f] hover:text-[#f0b58c] disabled:opacity-60"
+                onClick={cancelPlan}
+                disabled={cancelling}
+              >
+                {cancelling ? "Cancelling" : "Cancel subscription"}
+              </button>
+            )}
           </div>
         </header>
 
@@ -144,8 +244,8 @@ export function BillingPage() {
                 ))}
               </ul>
 
-              <button className="primary-btn mt-7 w-full" onClick={() => subscribe(plan.id)} disabled={user?.plan === plan.id}>
-                {user?.plan === plan.id ? "Current plan" : plan.id === "free" ? "Included" : "Upgrade plan"}
+              <button className="primary-btn mt-7 w-full" onClick={() => subscribe(plan.id)} disabled={user?.plan === plan.id || Boolean(busyPlan)}>
+                {user?.plan === plan.id ? "Current plan" : busyPlan === plan.id ? "Opening checkout" : plan.id === "free" ? "Included" : "Upgrade plan"}
               </button>
             </article>
           ))}
