@@ -27,6 +27,7 @@ export async function startImageWorker() {
 
     const image = await Image.findById(job?.data?.imageId);
     if (!image) return;
+    if (image.status === "cancelled") return;
 
     image.status = "failed";
     image.error = error.message;

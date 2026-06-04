@@ -8,7 +8,7 @@ const imageSchema = new mongoose.Schema(
     aspectRatio: { type: String, default: "1:1" },
     status: {
       type: String,
-      enum: ["queued", "processing", "done", "failed"],
+      enum: ["queued", "processing", "done", "failed", "cancelled"],
       default: "queued",
       index: true
     },

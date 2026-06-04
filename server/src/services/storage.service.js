@@ -58,3 +58,49 @@ export async function uploadGeneratedImage(buffer, { userId, imageId }) {
     })
   };
 }
+
+export async function cleanupOldLocalGeneratedFiles() {
+  if (hasCloudinary()) return { deleted: 0 };
+
+  const rootDir = path.resolve(process.cwd(), "uploads", "generated");
+  const cutoff = Date.now() - env.LOCAL_UPLOAD_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  let deleted = 0;
+
+  try {
+    await fs.access(rootDir);
+  } catch {
+    return { deleted };
+  }
+
+  async function walk(directory) {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        await removeEmptyDirectory(fullPath);
+        continue;
+      }
+
+      if (!entry.isFile()) continue;
+
+      const stats = await fs.stat(fullPath);
+      if (stats.mtimeMs >= cutoff) continue;
+
+      await fs.rm(fullPath, { force: true });
+      deleted += 1;
+    }
+  }
+
+  await walk(rootDir);
+  return { deleted };
+}
+
+async function removeEmptyDirectory(directory) {
+  const entries = await fs.readdir(directory);
+  if (entries.length === 0) {
+    await fs.rmdir(directory);
+  }
+}

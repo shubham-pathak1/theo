@@ -6,6 +6,7 @@ import { emitImageStatus } from "./socket.service.js";
 export async function processImageGeneration(imageId) {
   const image = await Image.findById(imageId);
   if (!image) return;
+  if (image.status === "cancelled" || image.status === "done") return;
 
   image.status = "processing";
   image.error = "";
@@ -17,14 +18,21 @@ export async function processImageGeneration(imageId) {
     image.enhancedPrompt = finalPrompt;
     await image.save();
 
+    if (await isCancelled(imageId)) return;
+
     const generated = await generateImageWithProvider(finalPrompt, {
       aspectRatio: image.aspectRatio,
       style: image.style
     });
+
+    if (await isCancelled(imageId)) return;
+
     const uploaded = await uploadGeneratedImage(generated.buffer, {
       userId: image.user.toString(),
       imageId: image.id
     });
+
+    if (await isCancelled(imageId)) return;
 
     image.status = "done";
     image.provider = generated.provider;
@@ -42,6 +50,11 @@ export async function processImageGeneration(imageId) {
     emitImageStatus(image);
     throw error;
   }
+}
+
+async function isCancelled(imageId) {
+  const latest = await Image.findById(imageId).select("status");
+  return !latest || latest.status === "cancelled";
 }
 
 function enhanceImagePrompt(prompt, style = "general") {

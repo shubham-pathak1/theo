@@ -27,6 +27,7 @@ const envSchema = z.object({
   IMAGE_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
   IMAGE_QUEUE_ATTEMPTS: z.coerce.number().int().positive().default(3),
   IMAGE_QUEUE_BACKOFF_MS: z.coerce.number().int().positive().default(5000),
+  LOCAL_UPLOAD_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
   JWT_ACCESS_SECRET: z.string().default("dev-access-secret"),
   JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret"),
   COOKIE_SECRET: z.string().default("dev-cookie-secret"),

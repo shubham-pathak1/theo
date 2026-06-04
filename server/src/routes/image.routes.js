@@ -7,6 +7,7 @@ import { redis } from "../config/redis.js";
 import { imageQueue } from "../queues/image.queue.js";
 import { consumeUsage } from "../services/usage.service.js";
 import { processImageGeneration } from "../services/imageGeneration.service.js";
+import { emitImageStatus } from "../services/socket.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -26,6 +27,22 @@ const imageParams = z.object({
 
 imageRouter.use(requireAuth);
 
+async function enqueueImage(image) {
+  try {
+    if (!imageQueue || redis?.status !== "ready") {
+      throw new Error("Redis not ready");
+    }
+
+    const job = await imageQueue.add("generate", { imageId: image.id });
+    image.jobId = job.id;
+  } catch {
+    image.jobId = `memory_${image.id}`;
+    globalThis.setTimeout(() => {
+      processImageGeneration(image.id).catch(() => null);
+    }, 0);
+  }
+}
+
 imageRouter.post(
   "/",
   validate(createImageSchema),
@@ -39,21 +56,66 @@ imageRouter.post(
       style: req.validated.body.style
     });
 
-    try {
-      if (!imageQueue || redis?.status !== "ready") {
-        throw new Error("Redis not ready");
-      }
-      const job = await imageQueue.add("generate", { imageId: image.id });
-      image.jobId = job.id;
-    } catch {
-      image.jobId = `memory_${image.id}`;
-      globalThis.setTimeout(() => {
-        processImageGeneration(image.id).catch(() => null);
-      }, 0);
-    }
+    await enqueueImage(image);
     await image.save();
 
     res.status(202).json({ image });
+  })
+);
+
+imageRouter.post(
+  "/:id/retry",
+  validate(imageParams),
+  asyncHandler(async (req, res) => {
+    const image = await Image.findOne({ _id: req.validated.params.id, user: req.user.id });
+
+    if (!image) {
+      throw new ApiError(404, "Image not found");
+    }
+
+    if (!["failed", "cancelled"].includes(image.status)) {
+      throw new ApiError(400, "Only failed or cancelled images can be retried");
+    }
+
+    image.status = "queued";
+    image.error = "";
+    image.url = "";
+    image.thumbnailUrl = "";
+    image.cloudinaryPublicId = "";
+    image.providerJobId = "";
+    await enqueueImage(image);
+    await image.save();
+    emitImageStatus(image);
+
+    res.status(202).json({ image });
+  })
+);
+
+imageRouter.post(
+  "/:id/cancel",
+  validate(imageParams),
+  asyncHandler(async (req, res) => {
+    const image = await Image.findOne({ _id: req.validated.params.id, user: req.user.id });
+
+    if (!image) {
+      throw new ApiError(404, "Image not found");
+    }
+
+    if (!["queued", "processing"].includes(image.status)) {
+      throw new ApiError(400, "Only queued or processing images can be cancelled");
+    }
+
+    if (imageQueue && image.jobId && !image.jobId.startsWith("memory_")) {
+      const job = await imageQueue.getJob(image.jobId);
+      await job?.remove().catch(() => null);
+    }
+
+    image.status = "cancelled";
+    image.error = "Generation cancelled by user.";
+    await image.save();
+    emitImageStatus(image);
+
+    res.json({ image });
   })
 );
 

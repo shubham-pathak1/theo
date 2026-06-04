@@ -1,4 +1,4 @@
-import { Download, ImagePlus, Upload } from "lucide-react";
+import { Download, ImagePlus, RotateCcw, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "../lib/api.js";
@@ -14,6 +14,7 @@ export function ImagesPage() {
   const [images, setImages] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState({});
 
   useEffect(() => {
     loadImages();
@@ -62,6 +63,35 @@ export function ImagesPage() {
   async function publish(id) {
     const { image } = await api.post(`/api/images/${id}/publish`, {});
     setImages((items) => items.map((item) => (item._id === id ? image : item)));
+  }
+
+  async function retryImage(id) {
+    setError("");
+    setActionBusy((state) => ({ ...state, [id]: "retry" }));
+
+    try {
+      const { image } = await api.post(`/api/images/${id}/retry`, {});
+      setImages((items) => items.map((item) => (item._id === id ? image : item)));
+      socket.emit("image:watch", image._id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionBusy((state) => ({ ...state, [id]: "" }));
+    }
+  }
+
+  async function cancelImage(id) {
+    setError("");
+    setActionBusy((state) => ({ ...state, [id]: "cancel" }));
+
+    try {
+      const { image } = await api.post(`/api/images/${id}/cancel`, {});
+      setImages((items) => items.map((item) => (item._id === id ? image : item)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionBusy((state) => ({ ...state, [id]: "" }));
+    }
   }
 
   return (
@@ -127,6 +157,26 @@ export function ImagesPage() {
                 </div>
                 <p className="min-h-12 text-sm leading-6 text-[#f4f1ea]">{image.prompt}</p>
                 <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
+                  {["queued", "processing"].includes(image.status) && (
+                    <button
+                      className="icon-btn"
+                      onClick={() => cancelImage(image._id)}
+                      disabled={actionBusy[image._id] === "cancel"}
+                      title="Cancel"
+                    >
+                      <X size={17} />
+                    </button>
+                  )}
+                  {["failed", "cancelled"].includes(image.status) && (
+                    <button
+                      className="icon-btn"
+                      onClick={() => retryImage(image._id)}
+                      disabled={actionBusy[image._id] === "retry"}
+                      title="Retry"
+                    >
+                      <RotateCcw size={17} />
+                    </button>
+                  )}
                   {image.url ? (
                     <a className="icon-btn" href={image.url} download title="Download">
                       <Download size={17} />
@@ -166,12 +216,12 @@ function ImagePreview({ image }) {
     );
   }
 
-  const failed = image.status === "failed" || imageFailed;
+  const failed = image.status === "failed" || image.status === "cancelled" || imageFailed;
 
   return (
     <div className="grid aspect-square place-items-center bg-[#171614] p-6">
       <div className="max-w-xs text-center">
-        <p className="font-serif text-2xl text-[#e8dfd2]">{imageFailed ? "Preview unavailable" : failed ? "Provider limit" : titleCase(image.status)}</p>
+        <p className="font-serif text-2xl text-[#e8dfd2]">{imageFailed ? "Preview unavailable" : failed ? previewTitle(image.status) : titleCase(image.status)}</p>
         <p className="mt-2 text-sm leading-6 text-[#8f887f]">
           {imageFailed
             ? "The image was generated, but the stored preview URL could not be loaded."
@@ -185,14 +235,24 @@ function ImagePreview({ image }) {
 }
 
 function StatusPill({ status }) {
-  const label = status === "done" ? "Ready" : status === "failed" ? "Paused" : titleCase(status);
-  const tone = status === "done" ? "text-emerald-200" : status === "failed" ? "text-[#efb18d]" : "text-[#d8d1c7]";
+  const label = status === "done" ? "Ready" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : titleCase(status);
+  const tone =
+    status === "done"
+      ? "text-emerald-200"
+      : status === "failed" || status === "cancelled"
+        ? "text-[#efb18d]"
+        : "text-[#d8d1c7]";
 
   return (
     <span className={`rounded-full border border-white/10 bg-[#181715] px-3 py-1 text-xs font-semibold ${tone}`}>
       {label}
     </span>
   );
+}
+
+function previewTitle(status) {
+  if (status === "cancelled") return "Cancelled";
+  return "Generation paused";
 }
 
 function cleanError(value = "") {
