@@ -11,6 +11,7 @@ export function errorHandler(error, _req, res, _next) {
 
   res.status(statusCode).json({
     message: error.message || "Something went wrong",
+    code: error.code,
     details: error.details,
     stack: env.NODE_ENV === "production" ? undefined : error.stack
   });

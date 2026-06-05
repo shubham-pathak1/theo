@@ -304,14 +304,14 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const refreshToken = req.cookies.theo_refresh;
     if (!refreshToken) {
-      throw new ApiError(401, "Refresh token missing");
+      throw new ApiError(401, "No saved session was found", { code: "REFRESH_TOKEN_MISSING" });
     }
 
     const tokenHash = hashToken(refreshToken);
     const user = await User.findOne({ "refreshTokens.tokenHash": tokenHash });
     if (!user) {
       clearRefreshCookie(res);
-      throw new ApiError(401, "Invalid refresh token");
+      throw new ApiError(401, "Saved session is invalid. Please sign in again.", { code: "REFRESH_TOKEN_INVALID" });
     }
 
     const currentToken = user.refreshTokens.find((entry) => entry.tokenHash === tokenHash);
@@ -321,7 +321,7 @@ authRouter.post(
       );
       await user.save();
       clearRefreshCookie(res);
-      throw new ApiError(401, "Refresh session expired");
+      throw new ApiError(401, "Saved session expired. Please sign in again.", { code: "REFRESH_TOKEN_EXPIRED" });
     }
 
     user.refreshTokens = user.refreshTokens.filter(

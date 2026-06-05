@@ -15,6 +15,14 @@ export function getAccessToken() {
   return accessToken;
 }
 
+function toApiError(response, data, fallbackMessage = "Request failed") {
+  const error = new Error(data.message || fallbackMessage);
+  error.status = response.status;
+  error.code = data.code || data.details?.code;
+  error.details = data.details;
+  return error;
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -35,7 +43,7 @@ async function request(path, options = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || "Request failed");
+    throw toApiError(response, data);
   }
 
   return data;
@@ -77,7 +85,7 @@ export async function streamMessage(conversationId, payload, onToken) {
 
   if (!response.ok || !response.body) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || "Streaming failed");
+    throw toApiError(response, error, "Streaming failed");
   }
 
   const reader = response.body.getReader();
