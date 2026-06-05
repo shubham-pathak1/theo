@@ -41,6 +41,16 @@ function AdminOnly({ children }) {
   return children;
 }
 
+function UserOnly({ children }) {
+  const { user } = useAuth();
+
+  if (user?.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return children;
+}
+
 export function App() {
   return (
     <Routes>
@@ -77,7 +87,9 @@ export function App() {
         path="/"
         element={
           <Protected>
-            <AppLayout />
+            <UserOnly>
+              <AppLayout />
+            </UserOnly>
           </Protected>
         }
       >

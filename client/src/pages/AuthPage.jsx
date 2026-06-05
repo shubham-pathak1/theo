@@ -253,7 +253,7 @@ export function AuthPage() {
   }, [googleLogin, mode]);
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={user.role === "admin" ? "/admin" : "/"} replace />;
   }
 
   async function submit(event) {
