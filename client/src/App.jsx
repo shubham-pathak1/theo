@@ -1,6 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { AdminLayout } from "./admin/AdminLayout.jsx";
+import { AdminAnalyticsPage } from "./admin/pages/AdminAnalyticsPage.jsx";
+import { AdminImagesPage } from "./admin/pages/AdminImagesPage.jsx";
+import { AdminOverviewPage } from "./admin/pages/AdminOverviewPage.jsx";
+import { AdminSubscriptionsPage } from "./admin/pages/AdminSubscriptionsPage.jsx";
+import { AdminUsersPage } from "./admin/pages/AdminUsersPage.jsx";
 import { AppLayout } from "./components/AppLayout.jsx";
-import { AdminPage } from "./pages/AdminPage.jsx";
 import { AuthPage } from "./pages/AuthPage.jsx";
 import { BillingPage } from "./pages/BillingPage.jsx";
 import { ChatPage } from "./pages/ChatPage.jsx";
@@ -53,6 +58,22 @@ export function App() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
+        path="/admin"
+        element={
+          <Protected>
+            <AdminOnly>
+              <AdminLayout />
+            </AdminOnly>
+          </Protected>
+        }
+      >
+        <Route index element={<AdminOverviewPage />} />
+        <Route path="analytics" element={<AdminAnalyticsPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="images" element={<AdminImagesPage />} />
+        <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+      </Route>
+      <Route
         path="/"
         element={
           <Protected>
@@ -64,14 +85,6 @@ export function App() {
         <Route path="images" element={<ImagesPage />} />
         <Route path="gallery" element={<GalleryPage />} />
         <Route path="billing" element={<BillingPage />} />
-        <Route
-          path="admin"
-          element={
-            <AdminOnly>
-              <AdminPage />
-            </AdminOnly>
-          }
-        />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

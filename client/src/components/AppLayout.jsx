@@ -1,4 +1,4 @@
-import { CreditCard, Image, LogOut, MessageSquare, Moon, Settings, Shield, Sun, Users } from "lucide-react";
+import { CreditCard, Image, LogOut, MessageSquare, Moon, Settings, Sun, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -8,7 +8,6 @@ const navItems = [
   { to: "/images", label: "Images", icon: Image },
   { to: "/gallery", label: "Gallery", icon: Users },
   { to: "/billing", label: "Billing", icon: CreditCard },
-  { to: "/admin", label: "Admin", icon: Shield, admin: true },
   { to: "/settings", label: "Settings", icon: Settings }
 ];
 
@@ -17,7 +16,6 @@ export function AppLayout() {
   const [dark, setDark] = useState(() => localStorage.getItem("theo_theme") !== "light");
   const [verificationNotice, setVerificationNotice] = useState("");
   const [verificationBusy, setVerificationBusy] = useState(false);
-  const visibleNavItems = navItems.filter((item) => !item.admin || user?.role === "admin");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -52,7 +50,7 @@ export function AppLayout() {
         </div>
 
         <nav className="mt-8 space-y-1">
-          {visibleNavItems.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -126,9 +124,9 @@ export function AppLayout() {
 
       <nav
         className="fixed inset-x-0 bottom-0 z-20 grid border-t border-white/10 bg-[#181715] lg:hidden"
-        style={{ gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
       >
-        {visibleNavItems.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
