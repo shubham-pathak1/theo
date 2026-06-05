@@ -63,6 +63,47 @@ export function toGeminiContents(messages) {
   }));
 }
 
+export async function summarizeText(text, existingSummary = "") {
+  const source = String(text || "").trim();
+  if (!source) return "";
+
+  const fallback = source.replace(/\s+/g, " ").slice(0, 1600);
+  const hasKey = requireGeminiKey();
+  if (!hasKey) return fallback;
+
+  const prompt = [
+    "Summarize these older chat turns into compact memory for a future assistant response.",
+    "Keep durable user goals, decisions, preferences, constraints, and unresolved tasks.",
+    "Do not add new facts. Keep it under 180 words.",
+    existingSummary ? `Existing memory:\n${existingSummary}` : "",
+    `Older turns:\n${source}`
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const response = await fetch(`${baseUrl}/models/${normalizeModel(env.THEO_MODEL_LOW)}:generateContent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": env.GEMINI_API_KEY
+    },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
+    })
+  });
+
+  if (!response.ok) return fallback;
+
+  const data = await response.json();
+  return (
+    data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || "")
+      .join("")
+      .trim()
+      .slice(0, 1800) || fallback
+  );
+}
+
 export function demoImageBuffer(prompt, aspectRatio = "1:1", note = "Image generation is running in demo mode") {
   const [width, height] = aspectRatio.split(":").map(Number);
   const svgWidth = width >= height ? 1280 : 960;

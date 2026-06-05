@@ -4,9 +4,11 @@ import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import mongoose from "mongoose";
 import morgan from "morgan";
 import path from "node:path";
 import { env } from "./config/env.js";
+import { redis } from "./config/redis.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { billingRouter } from "./routes/billing.routes.js";
@@ -54,7 +56,19 @@ export function createApp() {
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, name: "theo-api" });
+    const mongoReady = mongoose.connection.readyState === 1;
+    const redisReady = !env.ENABLE_REDIS || redis?.status === "ready";
+    res.status(mongoReady && redisReady ? 200 : 503).json({
+      ok: mongoReady && redisReady,
+      name: "theo-api",
+      services: {
+        mongodb: mongoReady ? "ready" : "unavailable",
+        redis: env.ENABLE_REDIS ? redis?.status || "unavailable" : "disabled",
+        storage: env.CLOUDINARY_CLOUD_NAME ? "cloudinary" : "local",
+        imageProvider: env.IMAGE_PROVIDER,
+        mail: env.SMTP_HOST ? "smtp" : "development"
+      }
+    });
   });
 
   app.use("/api/auth", authRouter);

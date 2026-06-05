@@ -17,6 +17,7 @@ export const imageRouter = Router();
 const createImageSchema = z.object({
   body: z.object({
     prompt: z.string().min(3).max(2000),
+    negativePrompt: z.string().max(1000).optional().default(""),
     aspectRatio: z.enum(["1:1", "3:4", "4:3", "9:16", "16:9"]).default("1:1"),
     style: z.string().max(80).optional().default("general")
   })
@@ -53,12 +54,14 @@ imageRouter.post(
     const image = await Image.create({
       user: req.user.id,
       prompt: req.validated.body.prompt,
+      negativePrompt: req.validated.body.negativePrompt,
       aspectRatio: req.validated.body.aspectRatio,
       style: req.validated.body.style
     });
 
     await enqueueImage(image);
     await image.save();
+    console.info("Image generation queued", { imageId: image.id, userId: req.user.id, provider: image.provider });
 
     res.status(202).json({ image });
   })
@@ -87,6 +90,7 @@ imageRouter.post(
     await enqueueImage(image);
     await image.save();
     emitImageStatus(image);
+    console.info("Image generation retried", { imageId: image.id, userId: req.user.id });
 
     res.status(202).json({ image });
   })
@@ -115,6 +119,7 @@ imageRouter.post(
     image.error = "Generation cancelled by user.";
     await image.save();
     emitImageStatus(image);
+    console.info("Image generation cancelled", { imageId: image.id, userId: req.user.id });
 
     res.json({ image });
   })

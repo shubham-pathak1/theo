@@ -83,6 +83,15 @@ billingRouter.get(
   })
 );
 
+billingRouter.get(
+  "/subscriptions",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const subscriptions = await Subscription.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(12);
+    res.json({ subscriptions });
+  })
+);
+
 billingRouter.post(
   "/subscribe",
   requireAuth,
@@ -92,6 +101,7 @@ billingRouter.post(
     const razorpay = razorpayClient();
     if (!razorpay || !planIds[plan]) {
       const { user, subscription } = await activateDemoPlan(req.user.id, plan);
+      console.info("Billing demo subscription activated", { userId: req.user.id, plan });
 
       res.status(201).json({
         demo: true,
@@ -119,6 +129,7 @@ billingRouter.post(
       status: subscription.status,
       currentPeriodEnd: periodEndFromRazorpay(subscription)
     });
+    console.info("Razorpay subscription created", { userId: req.user.id, plan, subscriptionId: subscription.id });
 
     res.status(201).json({
       checkoutRequired: true,
@@ -161,6 +172,7 @@ billingRouter.post(
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, { plan }, { new: true });
+    console.info("Razorpay checkout verified", { userId: req.user.id, plan, subscriptionId: razorpaySubscriptionId });
 
     res.json({
       user: publicBillingUser(user),
@@ -193,6 +205,7 @@ billingRouter.post(
     subscription.status = "cancelled";
     await subscription.save();
     const user = await User.findByIdAndUpdate(req.user.id, { plan: "free" }, { new: true });
+    console.info("Subscription cancelled", { userId: req.user.id, subscriptionId: subscription.providerSubscriptionId });
 
     res.json({
       user: publicBillingUser(user),
@@ -216,6 +229,7 @@ billingRouter.post(
     }
 
     const event = JSON.parse(payload);
+    console.info("Razorpay webhook received", { event: event.event });
     const entity = event.payload?.subscription?.entity || event.payload?.payment?.entity;
     const subscriptionId = event.payload?.subscription?.entity?.id || entity?.subscription_id;
     const existing = subscriptionId ? await Subscription.findOne({ providerSubscriptionId: subscriptionId }) : null;

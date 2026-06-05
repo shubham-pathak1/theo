@@ -1,5 +1,7 @@
+import bcrypt from "bcryptjs";
 import { Router } from "express";
 import { z } from "zod";
+import { ApiError } from "../utils/ApiError.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Conversation } from "../models/Conversation.js";
@@ -23,6 +25,13 @@ const settingsSchema = z.object({
   })
 });
 
+const passwordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8).max(128)
+  })
+});
+
 userRouter.use(requireAuth);
 
 userRouter.patch("/profile", validate(profileSchema), async (req, res, next) => {
@@ -40,6 +49,28 @@ userRouter.patch("/settings", validate(settingsSchema), async (req, res, next) =
     req.user.customInstructions = req.validated.body.customInstructions;
     await req.user.save();
     res.json({ user: publicUser(req.user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+userRouter.patch("/password", validate(passwordSchema), async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user?.passwordHash) {
+      throw new ApiError(400, "This account uses Google Sign-In. Password login is not enabled.");
+    }
+
+    const valid = await bcrypt.compare(req.validated.body.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new ApiError(401, "Current password is incorrect.");
+    }
+
+    user.passwordHash = await bcrypt.hash(req.validated.body.newPassword, 12);
+    user.refreshTokens = [];
+    await user.save();
+
+    res.json({ message: "Password updated. Please sign in again." });
   } catch (error) {
     next(error);
   }

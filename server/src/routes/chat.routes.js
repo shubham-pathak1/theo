@@ -5,7 +5,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Conversation } from "../models/Conversation.js";
 import { consumeUsage } from "../services/usage.service.js";
-import { modelTiers, resolveModelTier, streamChat } from "../services/gemini.service.js";
+import { modelTiers, resolveModelTier, streamChat, summarizeText } from "../services/gemini.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -24,7 +24,8 @@ const createConversationSchema = z.object({
 const renameSchema = z.object({
   params: z.object({ id: z.string().length(24) }),
   body: z.object({
-    title: z.string().min(1).max(120)
+    title: z.string().min(1).max(120).optional(),
+    pinned: z.boolean().optional()
   })
 });
 
@@ -61,7 +62,8 @@ async function compactConversationIfNeeded(conversation) {
   }
 
   const oldMessages = conversation.messages.slice(conversation.compactedUntil, compactUntil);
-  const newSummary = compactMessages(oldMessages);
+  const oldContext = compactMessages(oldMessages);
+  const newSummary = await summarizeText(oldContext, conversation.contextSummary);
   conversation.contextSummary = [conversation.contextSummary, newSummary].filter(Boolean).join("\n").slice(-4000);
   conversation.compactedUntil = compactUntil;
   await conversation.save();
@@ -98,6 +100,7 @@ chatRouter.get(
         title: conversation.title,
         pinned: conversation.pinned,
         updatedAt: conversation.updatedAt,
+        compactedUntil: conversation.compactedUntil,
         preview: conversation.messages.at(-1)?.content || ""
       }))
     });
@@ -139,9 +142,16 @@ chatRouter.patch(
   "/conversations/:id",
   validate(renameSchema),
   asyncHandler(async (req, res) => {
+    const patch = {};
+    if (req.validated.body.title !== undefined) patch.title = req.validated.body.title;
+    if (req.validated.body.pinned !== undefined) patch.pinned = req.validated.body.pinned;
+    if (Object.keys(patch).length === 0) {
+      throw new ApiError(400, "No conversation changes provided");
+    }
+
     const conversation = await Conversation.findOneAndUpdate(
       { _id: req.validated.params.id, user: req.user.id },
-      { title: req.validated.body.title },
+      patch,
       { new: true }
     );
 
@@ -223,7 +233,14 @@ chatRouter.post(
         conversation.messages.push({ role: "model", content: assistantText, model: selectedTier.id });
         await conversation.save();
       }
-      res.write(`event: done\ndata: ${JSON.stringify({ conversationId: conversation.id })}\n\n`);
+      console.info("Chat response completed", { conversationId: conversation.id, userId: req.user.id, model: selectedTier.id });
+      res.write(
+        `event: done\ndata: ${JSON.stringify({
+          conversationId: conversation.id,
+          contextSummary: conversation.contextSummary,
+          compactedUntil: conversation.compactedUntil
+        })}\n\n`
+      );
       res.end();
     } catch (error) {
       res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);

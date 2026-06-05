@@ -22,7 +22,8 @@ export async function processImageGeneration(imageId) {
 
     const generated = await generateImageWithProvider(finalPrompt, {
       aspectRatio: image.aspectRatio,
-      style: image.style
+      style: image.style,
+      negativePrompt: image.negativePrompt
     });
 
     if (await isCancelled(imageId)) return;

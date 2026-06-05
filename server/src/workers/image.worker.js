@@ -33,6 +33,7 @@ export async function startImageWorker() {
     image.error = error.message;
     await image.save();
     emitImageStatus(image);
+    console.warn("Image job failed", { jobId: job?.id, imageId: job?.data?.imageId, error: error.message });
   });
 
   worker.on("completed", (job) => {

@@ -4,9 +4,9 @@ import { demoImageBuffer, generateImage as generateGeminiImage } from "./gemini.
 
 const cloudflareApiBase = "https://api.cloudflare.com/client/v4";
 
-export async function generateImageWithProvider(prompt, { aspectRatio = "1:1", style = "general" } = {}) {
+export async function generateImageWithProvider(prompt, { aspectRatio = "1:1", style = "general", negativePrompt = "" } = {}) {
   if (env.IMAGE_PROVIDER === "cloudflare") {
-    return generateCloudflareImage(prompt, { aspectRatio, style });
+    return generateCloudflareImage(prompt, { aspectRatio, style, negativePrompt });
   }
 
   if (env.IMAGE_PROVIDER === "gemini") {
@@ -27,7 +27,7 @@ export async function generateImageWithProvider(prompt, { aspectRatio = "1:1", s
   };
 }
 
-async function generateCloudflareImage(prompt, { aspectRatio, style }) {
+async function generateCloudflareImage(prompt, { aspectRatio, style, negativePrompt }) {
   if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
     if (env.NODE_ENV !== "production" || env.DEMO_MODE) {
       return {
@@ -52,7 +52,7 @@ async function generateCloudflareImage(prompt, { aspectRatio, style }) {
       },
       body: JSON.stringify({
         prompt,
-        negative_prompt: negativePromptForStyle(style),
+        negative_prompt: [negativePromptForStyle(style), negativePrompt].filter(Boolean).join(", "),
         width,
         height,
         num_steps: 20,
