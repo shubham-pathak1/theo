@@ -7,6 +7,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import path from "node:path";
 import { env } from "./config/env.js";
+import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { billingRouter } from "./routes/billing.routes.js";
 import { chatRouter } from "./routes/chat.routes.js";
@@ -57,6 +58,7 @@ export function createApp() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/admin", adminRouter);
   app.use("/api/users", userRouter);
   app.use("/api/chat", chatRouter);
   app.use("/api/images", imageRouter);
