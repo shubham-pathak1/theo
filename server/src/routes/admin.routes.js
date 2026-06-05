@@ -99,6 +99,41 @@ async function countBy(model, field, match = {}) {
   }, {});
 }
 
+function lastDays(days = 14) {
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (days - 1 - index));
+    return date;
+  });
+}
+
+async function dailyCounts(model, match = {}, dateField = "createdAt", days = 14) {
+  const dates = lastDays(days);
+  const since = dates[0];
+  const rows = await model.aggregate([
+    { $match: { ...match, [dateField]: { $gte: since } } },
+    {
+      $project: {
+        day: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: `$${dateField}`
+          }
+        }
+      }
+    },
+    { $group: { _id: "$day", count: { $sum: 1 } } },
+    { $sort: { _id: 1 } }
+  ]);
+
+  const counts = new Map(rows.map((row) => [row._id, row.count]));
+  return dates.map((date) => {
+    const day = date.toISOString().slice(0, 10);
+    return { day, count: counts.get(day) || 0 };
+  });
+}
+
 adminRouter.get(
   "/overview",
   asyncHandler(async (_req, res) => {
@@ -115,7 +150,11 @@ adminRouter.get(
       subscriptionsByStatus,
       newUsers24h,
       images24h,
-      failedImages24h
+      failedImages24h,
+      userGrowth,
+      imageJobs,
+      subscriptionGrowth,
+      imageFailures
     ] = await Promise.all([
       User.countDocuments({ deletedAt: { $exists: false } }),
       User.countDocuments({ emailVerified: true, deletedAt: { $exists: false } }),
@@ -128,7 +167,11 @@ adminRouter.get(
       countBy(Subscription, "status"),
       User.countDocuments({ createdAt: { $gte: since }, deletedAt: { $exists: false } }),
       Image.countDocuments({ createdAt: { $gte: since } }),
-      Image.countDocuments({ status: "failed", updatedAt: { $gte: since } })
+      Image.countDocuments({ status: "failed", updatedAt: { $gte: since } }),
+      dailyCounts(User, { deletedAt: { $exists: false } }),
+      dailyCounts(Image),
+      dailyCounts(Subscription),
+      dailyCounts(Image, { status: "failed" }, "updatedAt")
     ]);
 
     res.json({
@@ -149,6 +192,12 @@ adminRouter.get(
         newUsers24h,
         images24h,
         failedImages24h
+      },
+      charts: {
+        userGrowth,
+        imageJobs,
+        subscriptionGrowth,
+        imageFailures
       }
     });
   })
