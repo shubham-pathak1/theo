@@ -6,7 +6,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Subscription } from "../models/Subscription.js";
 import { User } from "../models/User.js";
-import { getUsage } from "../services/usage.service.js";
+import { ACTIVE_SUBSCRIPTION_STATUSES, getUsageForUser } from "../services/usage.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { verifySignature, verifyWebhookSignature } from "../utils/crypto.js";
@@ -58,6 +58,11 @@ function publicBillingUser(user) {
   };
 }
 
+function periodEndFromRazorpay(entity) {
+  const timestamp = entity?.current_end || entity?.charge_at || entity?.end_at;
+  return timestamp ? new Date(timestamp * 1000) : undefined;
+}
+
 async function activateDemoPlan(userId, plan) {
   const user = await User.findByIdAndUpdate(userId, { plan }, { new: true });
   const subscription = await Subscription.create({
@@ -74,7 +79,7 @@ billingRouter.get(
   "/usage",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(await getUsage(req.user.id, req.user.plan));
+    res.json(await getUsageForUser(req.user));
   })
 );
 
@@ -111,7 +116,8 @@ billingRouter.post(
       user: req.user.id,
       plan,
       providerSubscriptionId: subscription.id,
-      status: subscription.status
+      status: subscription.status,
+      currentPeriodEnd: periodEndFromRazorpay(subscription)
     });
 
     res.status(201).json({
@@ -144,7 +150,8 @@ billingRouter.post(
       },
       {
         plan,
-        status: "activated"
+        status: "activated",
+        currentPeriodEnd: undefined
       },
       { new: true }
     );
@@ -210,26 +217,46 @@ billingRouter.post(
 
     const event = JSON.parse(payload);
     const entity = event.payload?.subscription?.entity || event.payload?.payment?.entity;
-    const userId = entity?.notes?.userId;
-    const plan = entity?.notes?.plan;
+    const subscriptionId = event.payload?.subscription?.entity?.id || entity?.subscription_id;
+    const existing = subscriptionId ? await Subscription.findOne({ providerSubscriptionId: subscriptionId }) : null;
+    const userId = entity?.notes?.userId || existing?.user;
+    const plan = entity?.notes?.plan || existing?.plan;
+    const inactiveEvents = new Set([
+      "subscription.cancelled",
+      "subscription.completed",
+      "subscription.expired",
+      "subscription.halted",
+      "payment.failed"
+    ]);
+    const status = event.event === "payment.failed" ? "past_due" : entity?.status || existing?.status;
+    const shouldActivate =
+      userId &&
+      plan &&
+      (ACTIVE_SUBSCRIPTION_STATUSES.includes(status) ||
+        ["subscription.activated", "subscription.authenticated", "subscription.charged"].includes(event.event));
+    const shouldDeactivate = userId && inactiveEvents.has(event.event);
 
-    if (userId && plan && event.event === "subscription.activated") {
-      await Promise.all([
-        User.findByIdAndUpdate(userId, { plan }),
-        Subscription.findOneAndUpdate(
-          { providerSubscriptionId: entity.id },
-          { status: entity.status, plan },
-          { upsert: true }
-        )
-      ]);
+    if (subscriptionId && userId && plan) {
+      await Subscription.findOneAndUpdate(
+        { providerSubscriptionId: subscriptionId },
+        {
+          user: userId,
+          plan,
+          provider: "razorpay",
+          providerSubscriptionId: subscriptionId,
+          status,
+          currentPeriodEnd: periodEndFromRazorpay(entity)
+        },
+        { upsert: true }
+      );
     }
 
-    if (userId && event.event === "subscription.cancelled") {
+    if (shouldActivate) {
+      await User.findByIdAndUpdate(userId, { plan });
+    }
+
+    if (shouldDeactivate) {
       await User.findByIdAndUpdate(userId, { plan: "free" });
-      await Subscription.findOneAndUpdate(
-        { providerSubscriptionId: entity.id },
-        { status: "cancelled" }
-      );
     }
 
     res.json({ received: true });

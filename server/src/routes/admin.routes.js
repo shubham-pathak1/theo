@@ -7,7 +7,7 @@ import { Image } from "../models/Image.js";
 import { Subscription } from "../models/Subscription.js";
 import { User } from "../models/User.js";
 import { imageQueue } from "../queues/image.queue.js";
-import { getUsage } from "../services/usage.service.js";
+import { getUsageForUser } from "../services/usage.service.js";
 import { deleteGeneratedImageAsset } from "../services/storage.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -276,7 +276,7 @@ adminRouter.get(
       throw new ApiError(404, "User not found");
     }
 
-    res.json(await getUsage(user.id, user.plan));
+    res.json(await getUsageForUser(user));
   })
 );
 

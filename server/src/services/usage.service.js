@@ -1,6 +1,9 @@
 import { redis } from "../config/redis.js";
 import { env } from "../config/env.js";
+import { Subscription } from "../models/Subscription.js";
 import { ApiError } from "../utils/ApiError.js";
+
+export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "activated", "authenticated"];
 
 const limits = {
   free: { messages: 25, images: 5 },
@@ -24,6 +27,25 @@ function windowInfo(date = new Date()) {
 
 export function planLimits(plan = "free") {
   return limits[plan] || limits.free;
+}
+
+export async function getEffectivePlan(user) {
+  if (!user || user.plan === "free") {
+    return "free";
+  }
+
+  const subscription = await Subscription.findOne({
+    user: user.id,
+    plan: user.plan,
+    status: { $in: ACTIVE_SUBSCRIPTION_STATUSES },
+    $or: [
+      { currentPeriodEnd: { $exists: false } },
+      { currentPeriodEnd: null },
+      { currentPeriodEnd: { $gt: new Date() } }
+    ]
+  }).sort({ createdAt: -1 });
+
+  return subscription?.plan || "free";
 }
 
 export async function getUsage(userId, plan = "free") {
@@ -54,8 +76,14 @@ export async function getUsage(userId, plan = "free") {
   };
 }
 
+export async function getUsageForUser(user) {
+  const effectivePlan = await getEffectivePlan(user);
+  return getUsage(user.id, effectivePlan);
+}
+
 export async function consumeUsage(user, kind) {
-  const allowed = planLimits(user.plan)[kind];
+  const effectivePlan = await getEffectivePlan(user);
+  const allowed = planLimits(effectivePlan)[kind];
   const window = windowInfo();
   const key = `usage:${user.id}:${window.key}:${kind}`;
   let used;
@@ -79,7 +107,7 @@ export async function consumeUsage(user, kind) {
     } catch {
       memoryUsage.set(key, Math.max(0, used - 1));
     }
-    throw new ApiError(429, `${env.USAGE_WINDOW_HOURS}-hour ${kind} limit reached for ${user.plan} plan`);
+    throw new ApiError(429, `${env.USAGE_WINDOW_HOURS}-hour ${kind} limit reached for ${effectivePlan} plan`);
   }
 
   return { used, limit: allowed, resetAt: window.resetAt };
