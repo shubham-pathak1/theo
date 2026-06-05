@@ -7,6 +7,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "worker": "node src/workers/image.worker.js",
+    "admin:upsert": "node scripts/upsertAdmin.js",
     "gemini:models": "node scripts/listGeminiModels.js",
     "gemini:test": "node scripts/testGeminiModels.js",
     "lint": "eslint src --max-warnings=0"
