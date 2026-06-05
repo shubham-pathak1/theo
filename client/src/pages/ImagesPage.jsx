@@ -1,4 +1,4 @@
-import { Download, ImagePlus, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import { Copy, Download, ImagePlus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "../lib/api.js";
@@ -9,12 +9,15 @@ const aspectRatios = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 
 export function ImagesPage() {
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [style] = useState("general");
+  const [batchMode, setBatchMode] = useState(false);
   const [images, setImages] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState({});
+  const [copiedId, setCopiedId] = useState("");
 
   useEffect(() => {
     loadImages();
@@ -49,10 +52,20 @@ export function ImagesPage() {
     setBusy(true);
 
     try {
-      const { image } = await api.post("/api/images", { prompt, aspectRatio, style });
-      setImages((items) => [image, ...items]);
+      const prompts = batchMode
+        ? prompt
+            .split(/\n{2,}|---/g)
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : [prompt.trim()];
+      const created = [];
+      for (const item of prompts.slice(0, 6)) {
+        const { image } = await api.post("/api/images", { prompt: item, negativePrompt, aspectRatio, style });
+        created.push(image);
+        socket.emit("image:watch", image._id);
+      }
+      setImages((items) => [...created, ...items]);
       setPrompt("");
-      socket.emit("image:watch", image._id);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -111,6 +124,19 @@ export function ImagesPage() {
     });
   }
 
+  function regenerate(image) {
+    setPrompt(image.prompt || "");
+    setNegativePrompt(image.negativePrompt || "");
+    setAspectRatio(image.aspectRatio || "1:1");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function copyPrompt(image) {
+    await navigator.clipboard.writeText(image.prompt || "");
+    setCopiedId(image._id);
+    window.setTimeout(() => setCopiedId(""), 1200);
+  }
+
   return (
     <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] lg:px-10 lg:pb-10">
       <div className="mx-auto max-w-7xl space-y-7">
@@ -130,17 +156,30 @@ export function ImagesPage() {
 
         <section className="border border-white/10 bg-[#22211f] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.28)]">
           <div className="grid gap-4 lg:grid-cols-[1fr_180px]">
-            <textarea
-              className="min-h-40 w-full resize-none border border-white/10 bg-[#181715] px-5 py-4 text-lg text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the image Theo should create..."
-            />
+            <div className="grid gap-3">
+              <textarea
+                className="min-h-40 w-full resize-none border border-white/10 bg-[#181715] px-5 py-4 text-lg text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder={batchMode ? "Separate prompts with a blank line or ---" : "Describe the image Theo should create..."}
+              />
+              <input
+                className="min-h-11 border border-white/10 bg-[#181715] px-4 text-sm text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35"
+                value={negativePrompt}
+                onChange={(event) => setNegativePrompt(event.target.value)}
+                placeholder="Negative prompt"
+              />
+            </div>
 
-            <button className="primary-btn min-h-16" onClick={generate} disabled={busy || !prompt.trim()}>
-              <ImagePlus size={18} />
-              {busy ? "Queued" : "Create image"}
-            </button>
+            <div className="grid gap-3">
+              <button className="primary-btn min-h-16" onClick={generate} disabled={busy || !prompt.trim()}>
+                <ImagePlus size={18} />
+                {busy ? "Queued" : batchMode ? "Create batch" : "Create image"}
+              </button>
+              <button className={`icon-btn ${batchMode ? "border-white/30 bg-[#34322f]" : ""}`} onClick={() => setBatchMode((value) => !value)}>
+                Batch
+              </button>
+            </div>
           </div>
         </section>
 
@@ -174,6 +213,13 @@ export function ImagesPage() {
                 </div>
                 <p className="min-h-12 text-sm leading-6 text-[#f4f1ea]">{image.prompt}</p>
                 <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
+                  <button className="icon-btn" onClick={() => copyPrompt(image)} title="Copy prompt">
+                    <Copy size={17} />
+                    <span className="hidden xl:inline">{copiedId === image._id ? "Copied!" : "Copy"}</span>
+                  </button>
+                  <button className="icon-btn" onClick={() => regenerate(image)} title="Regenerate from prompt">
+                    <RotateCcw size={17} />
+                  </button>
                   {["queued", "processing"].includes(image.status) && (
                     <button
                       className="icon-btn"

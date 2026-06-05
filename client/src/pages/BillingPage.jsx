@@ -66,10 +66,20 @@ export function BillingPage() {
   const [notice, setNotice] = useState("");
   const [busyPlan, setBusyPlan] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [subscriptions, setSubscriptions] = useState([]);
 
   useEffect(() => {
-    api.get("/api/billing/usage").then(setUsage);
+    loadBillingState();
   }, []);
+
+  async function loadBillingState() {
+    const [usageData, subscriptionData] = await Promise.all([
+      api.get("/api/billing/usage"),
+      api.get("/api/billing/subscriptions")
+    ]);
+    setUsage(usageData);
+    setSubscriptions(subscriptionData.subscriptions || []);
+  }
 
   async function subscribe(plan) {
     if (plan === "free") return;
@@ -81,7 +91,7 @@ export function BillingPage() {
       if (data.demo) {
         updateUser(data.user || { plan });
         setNotice(data.message);
-        api.get("/api/billing/usage").then(setUsage);
+        loadBillingState();
         return;
       }
 
@@ -109,7 +119,7 @@ export function BillingPage() {
               });
               updateUser(verified.user || { plan });
               setNotice(verified.message || `${plan} plan activated`);
-              api.get("/api/billing/usage").then(setUsage);
+              loadBillingState();
               resolve();
             } catch (error) {
               reject(error);
@@ -140,7 +150,7 @@ export function BillingPage() {
       const data = await api.post("/api/billing/cancel", {});
       updateUser(data.user || { plan: "free" });
       setNotice(data.message || "Subscription cancelled");
-      api.get("/api/billing/usage").then(setUsage);
+      loadBillingState();
     } catch (err) {
       setNotice(err.message);
     } finally {
@@ -250,6 +260,31 @@ export function BillingPage() {
             </article>
           ))}
         </section>
+
+        <section className="border border-white/10 bg-[#22211f]">
+          <div className="border-b border-white/10 p-5">
+            <h2 className="text-xl font-semibold">Subscription records</h2>
+            <p className="mt-1 text-sm text-[#8f887f]">Recent plan events from demo activation or Razorpay.</p>
+          </div>
+          {subscriptions.length === 0 ? (
+            <p className="p-5 text-sm text-[#8f887f]">No subscription records yet.</p>
+          ) : (
+            <div className="divide-y divide-white/10">
+              {subscriptions.map((subscription) => (
+                <div key={subscription._id} className="grid gap-3 p-5 text-sm md:grid-cols-[1fr_auto_auto] md:items-center">
+                  <div>
+                    <p className="font-semibold capitalize">{subscription.plan} plan</p>
+                    <p className="mt-1 text-xs text-[#8f887f]">{subscription.providerSubscriptionId || "No provider id"}</p>
+                  </div>
+                  <span className="w-fit border border-white/10 bg-[#181715] px-3 py-1 text-xs font-semibold capitalize text-[#c9c3ba]">
+                    {subscription.status}
+                  </span>
+                  <span className="text-xs text-[#8f887f]">{formatDate(subscription.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -288,4 +323,9 @@ function LimitPill({ icon: Icon, value, label }) {
       <p className="text-xs text-[#8f887f]">{label}</p>
     </div>
   );
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }

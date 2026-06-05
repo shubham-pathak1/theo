@@ -72,10 +72,11 @@ export const api = {
   delete: (path) => request(path, { method: "DELETE" })
 };
 
-export async function streamMessage(conversationId, payload, onToken) {
+export async function streamMessage(conversationId, payload, onToken, options = {}) {
   const response = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/messages`, {
     method: "POST",
     credentials: "include",
+    signal: options.signal,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`
