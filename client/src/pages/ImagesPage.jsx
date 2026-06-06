@@ -9,7 +9,6 @@ const aspectRatios = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 
 export function ImagesPage() {
   const [prompt, setPrompt] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [style] = useState("general");
   const [batchMode, setBatchMode] = useState(false);
@@ -60,7 +59,7 @@ export function ImagesPage() {
         : [prompt.trim()];
       const created = [];
       for (const item of prompts.slice(0, 6)) {
-        const { image } = await api.post("/api/images", { prompt: item, negativePrompt, aspectRatio, style });
+        const { image } = await api.post("/api/images", { prompt: item, aspectRatio, style });
         created.push(image);
         socket.emit("image:watch", image._id);
       }
@@ -126,7 +125,6 @@ export function ImagesPage() {
 
   function regenerate(image) {
     setPrompt(image.prompt || "");
-    setNegativePrompt(image.negativePrompt || "");
     setAspectRatio(image.aspectRatio || "1:1");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -158,16 +156,10 @@ export function ImagesPage() {
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
             <div className="grid gap-3">
               <textarea
-                className="min-h-36 w-full resize-none border border-white/10 bg-[#181715] px-4 py-3 text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35 sm:min-h-40 sm:px-5 sm:py-4 sm:text-lg"
+                className="min-h-44 w-full resize-none rounded-3xl border border-white/10 bg-[#181715] px-4 py-4 text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35 sm:min-h-48 sm:px-5 sm:text-lg"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder={batchMode ? "Separate prompts with a blank line or ---" : "Describe the image Theo should create..."}
-              />
-              <input
-                className="min-h-11 border border-white/10 bg-[#181715] px-4 text-sm text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35"
-                value={negativePrompt}
-                onChange={(event) => setNegativePrompt(event.target.value)}
-                placeholder="Negative prompt"
               />
             </div>
 

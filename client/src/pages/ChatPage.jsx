@@ -1,7 +1,9 @@
-import { Edit3, Layers3, PanelLeft, Pin, PinOff, Plus, RotateCcw, Search, Send, Square, Trash2 } from "lucide-react";
+import { CreditCard, Edit3, Image as ImageIcon, LogOut, MessageSquare, PanelLeft, Pin, PinOff, Plus, RotateCcw, Search, Send, Settings, Sparkles, Square, Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { MarkdownMessage } from "../components/MarkdownMessage.jsx";
 import { api, streamMessage } from "../lib/api.js";
+import { useAuth } from "../state/AuthContext.jsx";
 
 const promptPresets = [
   { label: "Plan", prompt: "Help me turn this idea into a clear implementation plan:" },
@@ -10,7 +12,16 @@ const promptPresets = [
   { label: "Code", prompt: "Review this code and suggest the cleanest fix:" }
 ];
 
+const navItems = [
+  { to: "/", label: "Chat", icon: MessageSquare },
+  { to: "/images", label: "Images", icon: ImageIcon },
+  { to: "/gallery", label: "Gallery", icon: Users },
+  { to: "/billing", label: "Billing", icon: CreditCard },
+  { to: "/settings", label: "Settings", icon: Settings }
+];
+
 export function ChatPage() {
+  const { user, logout } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [messages, setMessages] = useState([]);
@@ -22,7 +33,6 @@ export function ChatPage() {
   const [query, setQuery] = useState("");
   const [railOpen, setRailOpen] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState("");
-  const [memoryMeta, setMemoryMeta] = useState({ compactedUntil: 0, contextSummary: "" });
   const abortRef = useRef(null);
 
   const activeConversation = useMemo(
@@ -35,16 +45,10 @@ export function ChatPage() {
     if (!needle) return conversations;
     return conversations.filter((item) => `${item.title} ${item.preview}`.toLowerCase().includes(needle));
   }, [conversations, query]);
-  const contextPercent = Math.min(100, Math.round((messages.filter((message) => message.content?.trim()).length / 18) * 100));
-  const compactedTurns = Math.max(memoryMeta.compactedUntil || 0, activeConversation?.compactedUntil || 0);
-
   const loadConversations = useCallback(async () => {
     const data = await api.get("/api/chat/conversations");
     setConversations(data.conversations || []);
-    if (!activeId && data.conversations?.[0]) {
-      setActiveId(data.conversations[0].id);
-    }
-  }, [activeId]);
+  }, []);
 
   useEffect(() => {
     loadConversations();
@@ -54,27 +58,19 @@ export function ChatPage() {
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
-      setMemoryMeta({ compactedUntil: 0, contextSummary: "" });
       return;
     }
 
     api.get(`/api/chat/conversations/${activeId}`).then(({ conversation }) => {
       setMessages(conversation.messages || []);
-      setMemoryMeta({
-        compactedUntil: conversation.compactedUntil || 0,
-        contextSummary: conversation.contextSummary || ""
-      });
     });
   }, [activeId]);
 
-  async function newChat() {
-    const { conversation } = await api.post("/api/chat/conversations", {});
-    setConversations((items) => [{ id: conversation._id, title: conversation.title, preview: "", pinned: false }, ...items]);
-    setActiveId(conversation._id);
+  function newChat() {
+    setActiveId("");
     setMessages([]);
     setDraft("");
     setError("");
-    setMemoryMeta({ compactedUntil: 0, contextSummary: "" });
     setRailOpen(false);
   }
 
@@ -122,11 +118,6 @@ export function ChatPage() {
       );
 
       await loadConversations();
-      const { conversation } = await api.get(`/api/chat/conversations/${conversationId}`);
-      setMemoryMeta({
-        compactedUntil: conversation.compactedUntil || 0,
-        contextSummary: conversation.contextSummary || ""
-      });
     } catch (err) {
       const stopped = err.name === "AbortError";
       setError(stopped ? "Generation stopped." : err.message);
@@ -169,9 +160,9 @@ export function ChatPage() {
   }
 
   const composer = (
-    <div className="border border-white/10 bg-[#24231f] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.22)] sm:p-4">
+    <div className="rounded-3xl border border-white/10 bg-[#282723] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.22)] sm:p-4">
       <textarea
-        className="min-h-20 w-full resize-none bg-transparent text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f] sm:min-h-24"
+        className="min-h-20 w-full resize-none bg-transparent text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#9a948b] sm:min-h-24"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -182,15 +173,13 @@ export function ChatPage() {
         }}
         placeholder="Message Theo"
       />
-      <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-[#aaa49a]">
-          <Layers3 size={14} />
-          <span>Context {contextPercent}%</span>
-          {compactedTurns > 0 && <span className="truncate">/ {compactedTurns} earlier turns summarized</span>}
-        </div>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+        <button className="grid h-10 w-10 place-items-center rounded-full text-[#f4f1ea] transition hover:bg-white/7" type="button" onClick={() => setDraft((value) => value || "Help me with ")}>
+          <Plus size={20} />
+        </button>
         <div className="flex min-w-0 items-center justify-end gap-2">
           <select
-            className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
+            className="h-10 min-w-0 rounded-xl border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
             title="Model tier"
@@ -216,7 +205,7 @@ export function ChatPage() {
   );
 
   return (
-    <div className="grid min-h-screen bg-[#1d1c1a] pb-20 text-[#f4f1ea] lg:grid-cols-[20rem_minmax(0,1fr)] lg:pb-0">
+    <div className="grid min-h-screen bg-[#1d1c1a] text-[#f4f1ea] lg:grid-cols-[19rem_minmax(0,1fr)]">
       {railOpen && (
         <button
           type="button"
@@ -226,64 +215,121 @@ export function ChatPage() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-[min(88vw,20rem)] overflow-y-auto border-r border-white/10 bg-[#181715] p-4 transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-[min(88vw,19rem)] flex-col border-r border-white/10 bg-[#181715] transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 ${
           railOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-4 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8f887f]" size={16} />
+        <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <img src="/favicon.svg" alt="" className="h-8 w-8" />
+            <div>
+              <p className="font-serif text-2xl font-semibold">Theo</p>
+              <p className="text-xs text-[#aaa49a]">{user?.plan || "free"} plan</p>
+            </div>
+          </div>
+          <button className="grid h-9 w-9 place-items-center rounded-full text-[#aaa49a] transition hover:bg-white/7 hover:text-[#f4f1ea]" title="Search">
+            <Search size={18} />
+          </button>
+        </div>
+
+        <div className="px-3">
+          <button className="flex h-11 w-full items-center gap-3 rounded-xl px-2 text-left text-sm font-semibold text-[#f4f1ea] transition hover:bg-white/7" onClick={newChat}>
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[#2b2a27]">
+              <Plus size={17} />
+            </span>
+            New chat
+          </button>
+
+          <nav className="mt-3 space-y-1">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  `flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${
+                    isActive ? "bg-[#11110f] text-[#fffaf0]" : "text-[#c9c3ba] hover:bg-white/7 hover:text-[#fffaf0]"
+                  }`
+                }
+              >
+                <item.icon size={18} />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-5 border-t border-white/10 px-4 pt-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-[#8f887f]" size={15} />
             <input
-              className="h-11 w-full border border-white/10 bg-[#22211f] pl-9 pr-3 text-sm text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/30"
+              className="h-9 w-full bg-transparent pl-7 pr-2 text-sm text-[#f4f1ea] outline-none placeholder:text-[#8f887f]"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search chats"
             />
           </div>
-          <button className="icon-btn" onClick={newChat} title="New chat">
-            <Plus size={17} />
-          </button>
         </div>
 
-        <div className="space-y-2">
-          {filteredConversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              className={`group flex w-full items-start gap-3 border p-3 text-left transition ${
-                activeId === conversation.id
-                  ? "border-white/20 bg-[#2b2a27]"
-                  : "border-white/8 bg-[#1d1c1a] hover:border-white/16 hover:bg-[#24231f]"
-              }`}
-              onClick={() => selectConversation(conversation.id)}
-            >
-              <span className="mt-1 text-[#aaa49a]">{conversation.pinned ? <Pin size={14} /> : <PanelLeft size={14} />}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-[#f4f1ea]">{conversation.title}</span>
-                <span className="mt-1 block truncate text-xs text-[#8f887f]">{conversation.preview || "No messages yet"}</span>
-              </span>
-              <span
-                className="grid h-7 w-7 shrink-0 place-items-center border border-white/10 bg-[#22211f] text-[#aaa49a] opacity-0 transition group-hover:opacity-100"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  togglePinned(conversation);
-                }}
-                title={conversation.pinned ? "Unpin" : "Pin"}
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          <div className="mb-2 flex items-center justify-between text-xs text-[#8f887f]">
+            <span>Recents</span>
+            <span>{filteredConversations.length}</span>
+          </div>
+          <div className="space-y-1">
+            {filteredConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                className={`group flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition ${
+                  activeId === conversation.id ? "bg-[#2b2a27] text-[#fffaf0]" : "text-[#c9c3ba] hover:bg-white/7 hover:text-[#fffaf0]"
+                }`}
+                onClick={() => selectConversation(conversation.id)}
               >
-                {conversation.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-              </span>
-            </button>
-          ))}
-          {filteredConversations.length === 0 && <p className="border border-dashed border-white/10 p-4 text-sm text-[#8f887f]">No chats found.</p>}
+                <span className="mt-1 text-[#aaa49a]">{conversation.pinned ? <Pin size={13} /> : <PanelLeft size={13} />}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{conversation.title}</span>
+                  <span className="mt-0.5 block truncate text-xs text-[#8f887f]">{conversation.preview}</span>
+                </span>
+                <span
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[#aaa49a] opacity-0 transition hover:bg-white/10 group-hover:opacity-100"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    togglePinned(conversation);
+                  }}
+                  title={conversation.pinned ? "Unpin" : "Pin"}
+                >
+                  {conversation.pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                </span>
+              </button>
+            ))}
+            {filteredConversations.length === 0 && <p className="px-2 py-3 text-sm text-[#8f887f]">No chats yet.</p>}
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#d8d1c7] text-sm font-semibold text-[#181715]">
+              {(user?.displayName || user?.email || "T").slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{user?.displayName}</p>
+              <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
+            </div>
+          </div>
+          <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#22211f] text-sm font-semibold transition hover:bg-[#2b2a27]" onClick={logout}>
+            <LogOut size={17} />
+            Sign out
+          </button>
         </div>
       </aside>
 
       <main className="grid min-h-screen min-w-0 grid-rows-[auto_1fr_auto]">
         <header className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-[#1d1c1a]/90 px-3 backdrop-blur sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <button className="icon-btn lg:hidden" onClick={() => setRailOpen((value) => !value)} title="Chats">
+            <button className="icon-btn rounded-full lg:hidden" onClick={() => setRailOpen((value) => !value)} title="Chats">
               <PanelLeft size={18} />
             </button>
-            <button className="hidden h-9 w-9 place-items-center border border-white/10 bg-[#2b2a27] text-[#f4f1ea] transition hover:bg-[#34322f] lg:grid" onClick={newChat} title="New chat">
+            <button className="hidden h-9 w-9 place-items-center rounded-full border border-white/10 bg-[#2b2a27] text-[#f4f1ea] transition hover:bg-[#34322f] lg:grid" onClick={newChat} title="New chat">
               <Plus size={18} />
             </button>
             <div className="min-w-0">
@@ -292,10 +338,10 @@ export function ChatPage() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button className="icon-btn" onClick={renameConversation} disabled={!activeConversation} title="Rename">
+            <button className="icon-btn rounded-full" onClick={renameConversation} disabled={!activeConversation} title="Rename">
               <Edit3 size={17} />
             </button>
-            <button className="icon-btn" onClick={deleteConversation} disabled={!activeId} title="Delete">
+            <button className="icon-btn rounded-full" onClick={deleteConversation} disabled={!activeId} title="Delete">
               <Trash2 size={17} />
             </button>
           </div>
@@ -305,10 +351,13 @@ export function ChatPage() {
           <div className="mx-auto max-w-4xl space-y-5">
             {messages.length === 0 && (
               <div className="grid min-h-[calc(100vh-13rem)] place-items-center">
-                <div className="w-full">
+                <div className="w-full max-w-3xl">
                   <div className="mb-8 text-center">
-                    <p className="font-serif text-3xl text-[#e8dfd2] sm:text-5xl">What are we making?</p>
-                    <p className="mt-3 text-[#aaa49a]">Start with a thought, bug, plan, or rough draft.</p>
+                    <div className="mx-auto mb-4 grid h-11 w-11 place-items-center rounded-full bg-[#d9895f]/15 text-[#d9895f]">
+                      <Sparkles size={21} />
+                    </div>
+                    <p className="font-serif text-3xl text-[#e8dfd2] sm:text-5xl">Hey there, {user?.displayName?.split(" ")[0] || "there"}</p>
+                    <p className="mt-3 text-[#aaa49a]">Ask, draft, debug, or shape a visual idea.</p>
                   </div>
                   {composer}
                   <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
@@ -324,7 +373,7 @@ export function ChatPage() {
 
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={message.role === "user" ? "max-w-[88%] bg-[#34322f] px-4 py-3 text-[#fffaf0] sm:max-w-[78%]" : "max-w-full px-1 py-2 text-[#f4f1ea] sm:max-w-[92%]"}>
+                <div className={message.role === "user" ? "max-w-[88%] rounded-3xl bg-[#34322f] px-4 py-3 text-[#fffaf0] sm:max-w-[76%]" : "max-w-full px-1 py-2 text-[#f4f1ea] sm:max-w-[86%]"}>
                   {message.role === "model" ? (
                     message.content ? <MarkdownMessage content={message.content} /> : <ThinkingIndicator />
                   ) : (

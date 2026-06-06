@@ -1,6 +1,6 @@
-import { CreditCard, Image, LogOut, MessageSquare, Moon, Settings, Sun, Users } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { CreditCard, Image, LogOut, MessageSquare, Settings, Users } from "lucide-react";
+import { useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../state/AuthContext.jsx";
 
 const navItems = [
@@ -13,14 +13,10 @@ const navItems = [
 
 export function AppLayout() {
   const { user, logout, resendVerification } = useAuth();
-  const [dark, setDark] = useState(() => localStorage.getItem("theo_theme") !== "light");
+  const location = useLocation();
   const [verificationNotice, setVerificationNotice] = useState("");
   const [verificationBusy, setVerificationBusy] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("theo_theme", dark ? "dark" : "light");
-  }, [dark]);
+  const isChatRoute = location.pathname === "/";
 
   async function resendVerificationEmail() {
     setVerificationNotice("");
@@ -38,7 +34,8 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-[#1d1c1a] text-[#f4f1ea]">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-white/10 bg-[#181715] px-4 py-5 text-[#f4f1ea] lg:block">
+      {!isChatRoute && (
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 border-r border-white/10 bg-[#181715] px-3 py-5 text-[#f4f1ea] lg:block">
         <div className="flex items-center gap-3 px-2">
           <div className="grid h-10 w-10 place-items-center rounded-md bg-[#2a2926] ring-1 ring-white/10">
             <img src="/favicon.svg" alt="" className="h-7 w-7" />
@@ -69,33 +66,32 @@ export function AppLayout() {
           ))}
         </nav>
 
-        <div className="absolute bottom-5 left-4 right-4 space-y-3">
+        <div className="absolute bottom-5 left-3 right-3 space-y-3">
           <div className="rounded-xl border border-white/10 bg-[#22211f] p-3">
             <p className="text-sm font-semibold">{user?.displayName}</p>
             <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
           </div>
-          <div className="flex gap-2">
-            <button className="icon-btn" onClick={() => setDark((value) => !value)} title="Toggle theme">
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <button className="icon-btn flex-1" onClick={logout} title="Log out">
-              <LogOut size={18} />
-            </button>
-          </div>
+          <button className="icon-btn w-full" onClick={logout} title="Log out">
+            <LogOut size={18} />
+            Sign out
+          </button>
         </div>
       </aside>
+      )}
 
+      {!isChatRoute && (
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/10 bg-[#181715]/95 px-4 text-[#f4f1ea] backdrop-blur lg:hidden">
         <div className="flex items-center gap-2 font-semibold">
           <img src="/favicon.svg" alt="" className="h-7 w-7" />
           Theo
         </div>
-        <button className="icon-btn" onClick={() => setDark((value) => !value)} title="Toggle theme">
-          {dark ? <Sun size={18} /> : <Moon size={18} />}
+        <button className="icon-btn" onClick={logout} title="Log out">
+          <LogOut size={18} />
         </button>
       </header>
+      )}
 
-      <main className="min-w-0 lg:pl-72">
+      <main className={`min-w-0 ${isChatRoute ? "" : "lg:pl-60"}`}>
         {user && !user.emailVerified && (
           <div className="border-b border-[#d9895f]/20 bg-[#2a211c] px-4 py-3 text-sm text-[#f0c2a6] lg:px-10">
             <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -122,6 +118,7 @@ export function AppLayout() {
         <Outlet />
       </main>
 
+      {!isChatRoute && (
       <nav
         className="fixed inset-x-0 bottom-0 z-20 grid border-t border-white/10 bg-[#181715] pb-[env(safe-area-inset-bottom)] lg:hidden"
         style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
@@ -140,6 +137,7 @@ export function AppLayout() {
           </NavLink>
         ))}
       </nav>
+      )}
     </div>
   );
 }

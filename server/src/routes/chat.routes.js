@@ -89,7 +89,8 @@ chatRouter.get(
   asyncHandler(async (req, res) => {
     const conversations = await Conversation.find({
       user: req.user.id,
-      deletedAt: { $exists: false }
+      deletedAt: { $exists: false },
+      "messages.0": { $exists: true }
     })
       .select("title pinned updatedAt messages")
       .sort({ pinned: -1, updatedAt: -1 });
