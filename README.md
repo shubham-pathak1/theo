@@ -1,6 +1,6 @@
 # Theo
 
-Theo is a full-stack AI workspace for chat, image generation, saved history, gallery publishing, usage limits, and subscription plans.
+Theo is a full-stack AI workspace for chat, image generation, saved history, gallery publishing, usage limits, and paid plan upgrades.
 
 ## Stack
 
@@ -10,7 +10,7 @@ Theo is a full-stack AI workspace for chat, image generation, saved history, gal
 - **AI:** Gemini chat models, Cloudflare Workers AI image generation
 - **Queue:** BullMQ with Redis, in-memory fallback for local development
 - **Storage:** Cloudinary or local generated-image storage
-- **Payments:** Razorpay subscription flow with checkout verification and webhooks
+- **Payments:** Razorpay Checkout orders with signature verification and webhooks
 
 ## Features
 
@@ -87,18 +87,16 @@ CLOUDINARY_API_SECRET=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
-RAZORPAY_PRO_PLAN_ID=
-RAZORPAY_MAX_PLAN_ID=
 SMTP_HOST=
 SMTP_USER=
 SMTP_PASS=
 ```
 
-Razorpay subscriptions:
+Razorpay billing:
 
 ```text
-1. Create Pro and Max subscription plans in the Razorpay dashboard.
-2. Add their plan IDs to RAZORPAY_PRO_PLAN_ID and RAZORPAY_MAX_PLAN_ID.
+1. Create or reuse a Razorpay test key pair.
+2. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the server environment.
 3. Add a webhook pointing to /api/billing/webhook.
 4. Use the same webhook secret in RAZORPAY_WEBHOOK_SECRET.
 ```
@@ -134,5 +132,5 @@ START_WORKER=false
 - Redis disabled: usage and image jobs use local memory fallback.
 - Cloudinary missing: generated images are stored under `server/uploads`.
 - Cloudflare missing in development: image requests return a local demo preview.
-- Razorpay missing: billing returns a setup error until keys and plan IDs are configured.
+- Razorpay missing: billing returns a setup error until keys are configured.
 - SMTP missing: reset links are returned in development responses.
