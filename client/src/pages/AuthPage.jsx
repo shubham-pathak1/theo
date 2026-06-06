@@ -9,7 +9,7 @@ import {
   Plus,
   Zap
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -175,12 +175,11 @@ export function AuthPage() {
   const [googleClientId, setGoogleClientId] = useState("");
   const [openMenu, setOpenMenu] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
-  const googleButtonRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadGoogleButton() {
+    async function loadGoogleConfig() {
       const config = await api.get("/api/auth/google-config");
       setGoogleClientId(config.clientId || "");
       if (cancelled || !config.enabled || !config.clientId) {
@@ -191,56 +190,9 @@ export function AuthPage() {
 
       setGoogleEnabled(true);
       setGoogleStatus("");
-
-      await new Promise((resolve, reject) => {
-        if (window.google?.accounts?.id) {
-          resolve();
-          return;
-        }
-
-        const existing = document.querySelector("script[data-google-identity]");
-        if (existing) {
-          existing.addEventListener("load", resolve, { once: true });
-          existing.addEventListener("error", reject, { once: true });
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.dataset.googleIdentity = "true";
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-
-      if (cancelled || !googleButtonRef.current) return;
-
-      window.google.accounts.id.initialize({
-        client_id: config.clientId,
-        callback: async (response) => {
-          setError("");
-          setNotice("");
-          try {
-            await googleLogin(response.credential);
-          } catch (err) {
-            setError(err.message);
-          }
-        }
-      });
-
-      googleButtonRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        shape: "rectangular",
-        width: 360,
-        text: mode === "login" ? "continue_with" : "signup_with"
-      });
     }
 
-    loadGoogleButton().catch(() => {
+    loadGoogleConfig().catch(() => {
       if (!cancelled) {
         setGoogleEnabled(false);
         setGoogleStatus("Google Sign-In could not load");
@@ -250,7 +202,7 @@ export function AuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [googleLogin, mode]);
+  }, []);
 
   if (user) {
     return <Navigate to={user.role === "admin" ? "/admin" : "/"} replace />;
@@ -402,18 +354,20 @@ export function AuthPage() {
       </header>
 
       <main id="top">
-        <section className="mx-auto grid max-w-7xl gap-10 px-4 pb-20 pt-10 sm:px-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:pb-28 lg:pt-6">
+        <section className="mx-auto grid max-w-7xl gap-7 px-4 pb-14 pt-6 sm:px-5 sm:pb-20 sm:pt-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-10 lg:pb-28 lg:pt-6">
           <div className="mx-auto w-full max-w-md lg:mx-0 lg:pl-14">
-            <h1 className="font-serif text-4xl leading-[0.98] tracking-normal text-[#f8f3ea] sm:text-5xl md:text-6xl">
+            <h1 className="font-serif text-[2.6rem] leading-[0.95] tracking-normal text-[#f8f3ea] sm:text-5xl md:text-6xl">
               Think clearly,
               <br />
               build faster
             </h1>
-            <p className="mt-5 text-base text-[#f8f3ea]/80">Brainstorm in chat, generate images, and ship ideas from one workspace.</p>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-[#f8f3ea]/78 sm:mt-5 sm:text-base">
+              Brainstorm in chat, generate images, and ship ideas from one workspace.
+            </p>
 
             <form
               id="signin"
-              className="mt-8 rounded-2xl border border-white/10 bg-[#171714] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.55)]"
+              className="mt-6 rounded-xl border border-white/10 bg-[#171714] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.5)] sm:mt-8 sm:rounded-2xl sm:p-5"
               onSubmit={submit}
             >
               <div className="mb-4 grid grid-cols-2 rounded-md bg-white/5 p-1">
@@ -433,15 +387,15 @@ export function AuthPage() {
                 </button>
               </div>
 
-              <div className="grid min-h-11 place-items-center rounded-md border border-white/15 bg-white px-2 py-1">
-                <div ref={googleButtonRef} />
-                {!googleEnabled && (
-                  <button type="button" className="flex items-center gap-2 text-sm font-semibold text-[#161512]" onClick={fallbackGoogleLogin}>
-                    <GoogleMark />
-                    {googleStatus}
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                className="flex h-11 w-full items-center justify-center gap-3 rounded-md border border-white/15 bg-white px-4 text-sm font-semibold text-[#161512] transition hover:bg-[#f6f1e8] disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={fallbackGoogleLogin}
+                disabled={!googleEnabled && googleStatus === "Checking Google Sign-In..."}
+              >
+                <GoogleMark />
+                {googleEnabled ? "Continue with Google" : googleStatus}
+              </button>
 
               <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-[#f6f1e8]/35">
                 <span className="h-px flex-1 bg-white/10" />
@@ -501,21 +455,21 @@ export function AuthPage() {
             </form>
           </div>
 
-          <div className="mx-auto w-full max-w-[640px] rounded-2xl border border-white/15 bg-black p-3 shadow-[0_28px_100px_rgba(0,0,0,0.7)] sm:p-6 lg:mr-0">
-            <div className="rounded-2xl bg-[#f4f0ea] p-5 text-[#15130f] sm:rounded-[28px] sm:p-8 md:p-10">
-              <div className="mb-7 flex items-center justify-between">
-                <h2 className="font-serif text-4xl">Theo</h2>
-                <span className="rounded-full bg-[#15130f] px-3 py-1 text-xs font-semibold text-[#f4f0ea]">Live workspace</span>
+          <div className="mx-auto w-full max-w-sm rounded-2xl border border-white/15 bg-black p-2.5 shadow-[0_24px_80px_rgba(0,0,0,0.62)] sm:max-w-[640px] sm:p-6 lg:mr-0">
+            <div className="rounded-xl bg-[#f4f0ea] p-4 text-[#15130f] sm:rounded-[28px] sm:p-8 md:p-10">
+              <div className="mb-5 flex items-center justify-between sm:mb-7">
+                <h2 className="font-serif text-3xl sm:text-4xl">Theo</h2>
+                <span className="rounded-full bg-[#15130f] px-2.5 py-1 text-[10px] font-semibold text-[#f4f0ea] sm:px-3 sm:text-xs">Live workspace</span>
               </div>
 
-              <div className="mb-8 flex items-center gap-4">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-[#15130f] text-[#f4f0ea]">
-                  <Plus size={20} />
+              <div className="mb-5 flex items-center gap-3 sm:mb-8 sm:gap-4">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-[#15130f] text-[#f4f0ea] sm:h-9 sm:w-9">
+                  <Plus size={18} />
                 </div>
-                <span className="text-xl font-medium">New task</span>
+                <span className="text-base font-medium sm:text-xl">New task</span>
               </div>
 
-              <div className="space-y-5 text-base sm:space-y-6 sm:text-xl">
+              <div className="space-y-3.5 text-sm sm:space-y-6 sm:text-xl">
                 <PreviewRow icon={MessageSquare} text="Draft launch plan for AI image gallery" active />
                 <PreviewRow icon={Code2} text="Explain refresh token rotation" active />
                 <PreviewRow icon={Image} text="Generate cinematic app hero image" active />
@@ -526,7 +480,7 @@ export function AuthPage() {
           </div>
         </section>
 
-        <section id="pricing" className="mx-auto max-w-7xl px-5 pb-28">
+        <section id="pricing" className="mx-auto max-w-7xl px-5 pb-18 sm:pb-24 lg:pb-28">
           <div className="text-center">
             <h2 className="font-serif text-3xl">Explore plans</h2>
             <div className="mt-6 inline-flex rounded-md bg-white/8 p-1">
@@ -535,26 +489,26 @@ export function AuthPage() {
             </div>
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-6 lg:grid-cols-3">
             {plans.map((plan) => (
               <article
                 key={plan.name}
-                className={`rounded-2xl border bg-[#1f1d1a] p-7 shadow-[0_24px_70px_rgba(0,0,0,0.28)] ${
+                className={`rounded-xl border bg-[#1f1d1a] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.24)] sm:rounded-2xl sm:p-7 sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)] ${
                   plan.featured ? "border-[#547b96]" : "border-white/12"
                 }`}
               >
-                <div className="mb-10 text-[#f6f1e8]/80">
+                <div className="mb-6 text-[#f6f1e8]/80 sm:mb-10">
                   <PlanMark />
                 </div>
-                <h3 className="font-serif text-3xl">{plan.name}</h3>
+                <h3 className="font-serif text-2xl sm:text-3xl">{plan.name}</h3>
                 <p className="mt-1 text-sm text-white/70">{plan.subtitle}</p>
-                <p className="mt-7 text-2xl font-semibold">{plan.price}</p>
+                <p className="mt-5 text-2xl font-semibold sm:mt-7">{plan.price}</p>
                 <p className="mt-1 text-xs text-white/45">Per month while active</p>
                 <a href="#signin" className="mt-7 flex h-11 items-center justify-center rounded-md bg-[#f6f1e8] text-sm font-semibold text-[#161512]">
                   Try Theo
                 </a>
-                <div className="my-8 h-px bg-white/10" />
-                <ul className="space-y-4 text-sm text-white/74">
+                <div className="my-6 h-px bg-white/10 sm:my-8" />
+                <ul className="space-y-3 text-sm text-white/74 sm:space-y-4">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex gap-3">
                       <Check className="mt-0.5 shrink-0" size={15} />
@@ -567,7 +521,7 @@ export function AuthPage() {
           </div>
         </section>
 
-        <section id="faq" className="mx-auto max-w-2xl px-5 pb-28">
+        <section id="faq" className="mx-auto max-w-2xl px-5 pb-16 sm:pb-28">
           <h2 className="text-center font-serif text-3xl">Frequently asked questions</h2>
           <div className="mt-8 divide-y divide-white/10">
             {faqItems.map((item, index) => (
@@ -589,16 +543,16 @@ export function AuthPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-black px-5 py-16">
+      <footer className="border-t border-white/10 bg-black px-5 py-10 sm:py-16">
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.2fr_3fr]">
-          <div className="flex min-h-72 flex-col justify-between">
+          <div className="flex flex-col justify-between lg:min-h-72">
             <a href="#top" className="flex items-center gap-2 text-xl font-semibold">
               <img src="/favicon.svg" alt="" className="h-7 w-7" />
               Theo
             </a>
           </div>
 
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
             {footerColumns.map((column) => (
               <div key={column.title}>
                 <h3 className="mb-4 text-sm font-semibold text-white/70">{column.title}</h3>
@@ -633,12 +587,12 @@ function GoogleMark() {
 
 function PreviewRow({ icon: Icon, text, active, loading }) {
   return (
-    <div className="flex items-center justify-between gap-5">
-      <div className={`flex items-center gap-4 ${loading ? "text-[#15130f]" : "text-[#15130f]/58"}`}>
-        <Icon size={22} />
-        <span>{text}</span>
+    <div className="flex items-center justify-between gap-3 sm:gap-5">
+      <div className={`flex min-w-0 items-center gap-3 sm:gap-4 ${loading ? "text-[#15130f]" : "text-[#15130f]/58"}`}>
+        <Icon className="shrink-0" size={18} />
+        <span className="min-w-0 leading-snug">{text}</span>
       </div>
-      {loading ? <Circle className="animate-spin text-[#bdb8ae]" size={30} /> : <span className={`h-3 w-3 rounded-full ${active ? "bg-[#2d83d4]" : "bg-[#c8c2b8]"}`} />}
+      {loading ? <Circle className="shrink-0 animate-spin text-[#bdb8ae]" size={24} /> : <span className={`h-2.5 w-2.5 shrink-0 rounded-full sm:h-3 sm:w-3 ${active ? "bg-[#2d83d4]" : "bg-[#c8c2b8]"}`} />}
     </div>
   );
 }
