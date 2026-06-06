@@ -10,7 +10,7 @@ Theo is a full-stack AI workspace for chat, image generation, saved history, gal
 - **AI:** Gemini chat models, Cloudflare Workers AI image generation
 - **Queue:** BullMQ with Redis, in-memory fallback for local development
 - **Storage:** Cloudinary or local generated-image storage
-- **Payments:** Razorpay subscription flow with demo fallback
+- **Payments:** Razorpay subscription flow with checkout verification and webhooks
 
 ## Features
 
@@ -134,5 +134,5 @@ START_WORKER=false
 - Redis disabled: usage and image jobs use local memory fallback.
 - Cloudinary missing: generated images are stored under `server/uploads`.
 - Cloudflare missing in development: image requests return a local demo preview.
-- Razorpay missing: billing can use demo plan activation.
+- Razorpay missing: billing returns a setup error until keys and plan IDs are configured.
 - SMTP missing: reset links are returned in development responses.
