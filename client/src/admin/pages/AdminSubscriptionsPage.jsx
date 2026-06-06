@@ -12,7 +12,7 @@ export function AdminSubscriptionsPage() {
   }, []);
 
   return (
-    <AdminPageFrame eyebrow="Subscriptions" title="Billing records" subtitle="Subscription records from Razorpay and demo activation flows." notice={notice}>
+    <AdminPageFrame eyebrow="Subscriptions" title="Billing records" subtitle="Subscription records created through Razorpay Checkout and webhooks." notice={notice}>
       <Panel title="Latest records">
         <AdminTable
           columns={["Customer", "Plan", "Status", "Provider ID", "Created"]}

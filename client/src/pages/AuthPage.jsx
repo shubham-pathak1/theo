@@ -30,7 +30,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "Rs 499",
+    price: "Rs 199",
     subtitle: "For everyday creation",
     featured: true,
     features: [
@@ -44,7 +44,7 @@ const plans = [
   },
   {
     name: "Max",
-    price: "Rs 999",
+    price: "Rs 499",
     subtitle: "For heavy builders",
     features: [
       "Everything in Pro",

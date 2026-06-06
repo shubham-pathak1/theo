@@ -17,7 +17,7 @@ const plans = [
   {
     id: "pro",
     name: "Pro",
-    price: "499",
+    price: "199",
     caption: "For regular project work.",
     messages: 250,
     images: 50,
@@ -28,7 +28,7 @@ const plans = [
   {
     id: "max",
     name: "Max",
-    price: "999",
+    price: "499",
     caption: "For heavy creative sessions.",
     messages: 1000,
     images: 200,
@@ -88,13 +88,6 @@ export function BillingPage() {
 
     try {
       const data = await api.post("/api/billing/subscribe", { plan });
-      if (data.demo) {
-        updateUser(data.user || { plan });
-        setNotice(data.message);
-        loadBillingState();
-        return;
-      }
-
       await loadRazorpayCheckout();
       await new Promise((resolve, reject) => {
         const checkout = new window.Razorpay({
@@ -202,9 +195,9 @@ export function BillingPage() {
 
             <div className="rounded-3xl border border-white/10 bg-[#22211f] p-5">
               <ShieldCheck className="text-[#d9895f]" size={24} />
-              <h2 className="mt-4 text-xl font-semibold">Local demo friendly</h2>
+              <h2 className="mt-4 text-xl font-semibold">Subscription billing</h2>
               <p className="mt-2 text-sm leading-6 text-[#aaa49a]">
-                Razorpay can run in demo mode, image generation can fall back locally, and usage remains trackable for presentation.
+                Plan changes are handled through Razorpay Checkout and applied after payment verification.
               </p>
               {usage?.resetAt && (
                 <p className="mt-5 rounded-2xl border border-white/10 bg-[#181715] px-4 py-3 text-sm text-[#c9c3ba]">
@@ -264,7 +257,7 @@ export function BillingPage() {
         <section className="border border-white/10 bg-[#22211f]">
           <div className="border-b border-white/10 p-5">
             <h2 className="text-xl font-semibold">Subscription records</h2>
-            <p className="mt-1 text-sm text-[#8f887f]">Recent plan events from demo activation or Razorpay.</p>
+            <p className="mt-1 text-sm text-[#8f887f]">Recent subscription events from Razorpay.</p>
           </div>
           {subscriptions.length === 0 ? (
             <p className="p-5 text-sm text-[#8f887f]">No subscription records yet.</p>
