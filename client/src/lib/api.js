@@ -34,19 +34,24 @@ async function request(path, options = {}) {
     }
   });
 
-  if (response.status === 401 && path !== "/api/auth/refresh") {
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401 && path !== "/api/auth/refresh" && isAuthFailure(data)) {
     const refreshed = await refreshSession();
     if (refreshed) {
       return request(path, options);
     }
   }
 
-  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw toApiError(response, data);
   }
 
   return data;
+}
+
+function isAuthFailure(data) {
+  return ["AUTH_REQUIRED", "TOKEN_EXPIRED", "TOKEN_INVALID"].includes(data?.details?.code || data?.code);
 }
 
 export async function refreshSession() {

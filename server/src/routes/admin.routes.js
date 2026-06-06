@@ -16,6 +16,10 @@ export const adminRouter = Router();
 
 adminRouter.use(requireAuth, requireAdmin);
 
+const realSubscriptionQuery = {
+  providerSubscriptionId: { $not: /^demo_/ }
+};
+
 const userQuerySchema = z.object({
   query: z.object({
     q: z.string().optional().default(""),
@@ -161,16 +165,16 @@ adminRouter.get(
       Conversation.countDocuments({ deletedAt: { $exists: false } }),
       Image.countDocuments(),
       Image.countDocuments({ published: true }),
-      Subscription.countDocuments({ status: { $in: ["created", "authenticated", "active", "activated"] } }),
+      Subscription.countDocuments({ ...realSubscriptionQuery, status: { $in: ["created", "authenticated", "active", "activated"] } }),
       countBy(User, "plan", { deletedAt: { $exists: false } }),
       countBy(Image, "status"),
-      countBy(Subscription, "status"),
+      countBy(Subscription, "status", realSubscriptionQuery),
       User.countDocuments({ createdAt: { $gte: since }, deletedAt: { $exists: false } }),
       Image.countDocuments({ createdAt: { $gte: since } }),
       Image.countDocuments({ status: "failed", updatedAt: { $gte: since } }),
       dailyCounts(User, { deletedAt: { $exists: false } }),
       dailyCounts(Image),
-      dailyCounts(Subscription),
+      dailyCounts(Subscription, realSubscriptionQuery),
       dailyCounts(Image, { status: "failed" }, "updatedAt")
     ]);
 
@@ -338,7 +342,7 @@ adminRouter.delete(
 adminRouter.get(
   "/subscriptions",
   asyncHandler(async (_req, res) => {
-    const subscriptions = await Subscription.find()
+    const subscriptions = await Subscription.find(realSubscriptionQuery)
       .populate("user", "displayName email plan")
       .sort({ createdAt: -1 })
       .limit(80);

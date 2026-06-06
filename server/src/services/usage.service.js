@@ -37,6 +37,7 @@ export async function getEffectivePlan(user) {
   const subscription = await Subscription.findOne({
     user: user.id,
     plan: user.plan,
+    providerSubscriptionId: { $not: /^demo_/ },
     status: { $in: ACTIVE_SUBSCRIPTION_STATUSES },
     $or: [
       { currentPeriodEnd: { $exists: false } },

@@ -63,16 +63,31 @@ function periodEndFromRazorpay(entity) {
   return timestamp ? new Date(timestamp * 1000) : undefined;
 }
 
-async function activateDemoPlan(userId, plan) {
-  const user = await User.findByIdAndUpdate(userId, { plan }, { new: true });
-  const subscription = await Subscription.create({
-    user: userId,
-    plan,
-    providerSubscriptionId: `demo_${Date.now()}`,
-    status: "activated"
-  });
+function billingConfigError(plan) {
+  if (!env.RAZORPAY_KEY_ID) {
+    return new ApiError(500, "Razorpay key ID is not configured", { code: "RAZORPAY_KEY_ID_MISSING" });
+  }
+  if (!env.RAZORPAY_KEY_SECRET) {
+    return new ApiError(500, "Razorpay key secret is not configured", { code: "RAZORPAY_KEY_SECRET_MISSING" });
+  }
+  if (!planIds[plan]) {
+    return new ApiError(500, `Razorpay ${plan} plan ID is not configured`, { code: "RAZORPAY_PLAN_ID_MISSING", plan });
+  }
+  return null;
+}
 
-  return { user, subscription };
+function razorpayError(error) {
+  const statusCode = error?.statusCode || error?.error?.code || 502;
+  const description = error?.error?.description || error?.message || "Razorpay request failed";
+  const code = error?.error?.reason || error?.error?.code || "RAZORPAY_REQUEST_FAILED";
+  if (statusCode === 401 || description.toLowerCase().includes("authentication")) {
+    return new ApiError(
+      502,
+      "Razorpay rejected the configured test key or secret. Use the Key ID and Secret from the same Razorpay test key pair, then restart the backend.",
+      { code, providerMessage: description }
+    );
+  }
+  return new ApiError(502, `Razorpay subscription failed: ${description}`, { code, providerMessage: description });
 }
 
 billingRouter.get(
@@ -87,7 +102,12 @@ billingRouter.get(
   "/subscriptions",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const subscriptions = await Subscription.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(12);
+    const subscriptions = await Subscription.find({
+      user: req.user.id,
+      providerSubscriptionId: { $not: /^demo_/ }
+    })
+      .sort({ createdAt: -1 })
+      .limit(12);
     res.json({ subscriptions });
   })
 );
@@ -99,28 +119,23 @@ billingRouter.post(
   asyncHandler(async (req, res) => {
     const { plan } = req.validated.body;
     const razorpay = razorpayClient();
-    if (!razorpay || !planIds[plan]) {
-      const { user, subscription } = await activateDemoPlan(req.user.id, plan);
-      console.info("Billing demo subscription activated", { userId: req.user.id, plan });
+    const configError = billingConfigError(plan);
+    if (!razorpay || configError) throw configError;
 
-      res.status(201).json({
-        demo: true,
-        subscription,
-        user: publicBillingUser(user),
-        message: `${plan} plan activated in demo mode`
+    let subscription;
+    try {
+      subscription = await razorpay.subscriptions.create({
+        plan_id: planIds[plan],
+        total_count: 12,
+        customer_notify: 1,
+        notes: {
+          userId: req.user.id,
+          plan
+        }
       });
-      return;
+    } catch (error) {
+      throw razorpayError(error);
     }
-
-    const subscription = await razorpay.subscriptions.create({
-      plan_id: planIds[plan],
-      total_count: 12,
-      customer_notify: 1,
-      notes: {
-        userId: req.user.id,
-        plan
-      }
-    });
 
     await Subscription.create({
       user: req.user.id,
@@ -188,7 +203,8 @@ billingRouter.post(
   asyncHandler(async (req, res) => {
     const subscription = await Subscription.findOne({
       user: req.user.id,
-      status: { $nin: ["cancelled", "completed"] }
+      status: { $nin: ["cancelled", "completed"] },
+      providerSubscriptionId: { $not: /^demo_/ }
     }).sort({ createdAt: -1 });
 
     if (!subscription) {
@@ -198,8 +214,12 @@ billingRouter.post(
     }
 
     const razorpay = razorpayClient();
-    if (razorpay && subscription.providerSubscriptionId && !subscription.providerSubscriptionId.startsWith("demo_")) {
-      await razorpay.subscriptions.cancel(subscription.providerSubscriptionId, false);
+    if (razorpay && subscription.providerSubscriptionId) {
+      try {
+        await razorpay.subscriptions.cancel(subscription.providerSubscriptionId, false);
+      } catch (error) {
+        throw razorpayError(error);
+      }
     }
 
     subscription.status = "cancelled";

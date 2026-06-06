@@ -52,6 +52,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional().default(""),
   RAZORPAY_KEY_ID: z.string().optional().default(""),
   RAZORPAY_KEY_SECRET: z.string().optional().default(""),
+  RAZORPAY_SECRET: z.string().optional().default(""),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(""),
   RAZORPAY_PRO_PLAN_ID: z.string().optional().default(""),
   RAZORPAY_MAX_PLAN_ID: z.string().optional().default(""),
@@ -62,4 +63,9 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default("Theo <noreply@theo.local>")
 });
 
-export const env = envSchema.parse(process.env);
+const parsedEnv = envSchema.parse(process.env);
+
+export const env = {
+  ...parsedEnv,
+  RAZORPAY_KEY_SECRET: parsedEnv.RAZORPAY_KEY_SECRET || parsedEnv.RAZORPAY_SECRET
+};
