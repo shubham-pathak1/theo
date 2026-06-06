@@ -20,7 +20,7 @@ export function ChatPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState("");
   const [memoryMeta, setMemoryMeta] = useState({ compactedUntil: 0, contextSummary: "" });
   const abortRef = useRef(null);
@@ -75,6 +75,12 @@ export function ChatPage() {
     setDraft("");
     setError("");
     setMemoryMeta({ compactedUntil: 0, contextSummary: "" });
+    setRailOpen(false);
+  }
+
+  function selectConversation(id) {
+    setActiveId(id);
+    if (window.innerWidth < 1024) setRailOpen(false);
   }
 
   async function send(overridePrompt) {
@@ -163,9 +169,9 @@ export function ChatPage() {
   }
 
   const composer = (
-    <div className="border border-white/10 bg-[#24231f] p-4 shadow-[0_22px_80px_rgba(0,0,0,0.22)]">
+    <div className="border border-white/10 bg-[#24231f] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.22)] sm:p-4">
       <textarea
-        className="min-h-24 w-full resize-none bg-transparent text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f]"
+        className="min-h-20 w-full resize-none bg-transparent text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f] sm:min-h-24"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -182,9 +188,9 @@ export function ChatPage() {
           <span>Context {contextPercent}%</span>
           {compactedTurns > 0 && <span className="truncate">/ {compactedTurns} earlier turns summarized</span>}
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex min-w-0 items-center justify-end gap-2">
           <select
-            className="h-10 rounded-lg border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
+            className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
             title="Model tier"
@@ -210,8 +216,20 @@ export function ChatPage() {
   );
 
   return (
-    <div className="grid min-h-screen bg-[#1d1c1a] pb-20 text-[#f4f1ea] lg:grid-cols-[20rem_1fr] lg:pb-0">
-      <aside className={`${railOpen ? "block" : "hidden"} border-r border-white/10 bg-[#181715] p-4 lg:block`}>
+    <div className="grid min-h-screen bg-[#1d1c1a] pb-20 text-[#f4f1ea] lg:grid-cols-[20rem_minmax(0,1fr)] lg:pb-0">
+      {railOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-20 bg-black/55 backdrop-blur-sm lg:hidden"
+          onClick={() => setRailOpen(false)}
+          aria-label="Close conversations"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-[min(88vw,20rem)] overflow-y-auto border-r border-white/10 bg-[#181715] p-4 transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 ${
+          railOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="mb-4 flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8f887f]" size={16} />
@@ -236,7 +254,7 @@ export function ChatPage() {
                   ? "border-white/20 bg-[#2b2a27]"
                   : "border-white/8 bg-[#1d1c1a] hover:border-white/16 hover:bg-[#24231f]"
               }`}
-              onClick={() => setActiveId(conversation.id)}
+              onClick={() => selectConversation(conversation.id)}
             >
               <span className="mt-1 text-[#aaa49a]">{conversation.pinned ? <Pin size={14} /> : <PanelLeft size={14} />}</span>
               <span className="min-w-0 flex-1">
@@ -259,8 +277,8 @@ export function ChatPage() {
         </div>
       </aside>
 
-      <main className="grid min-h-screen grid-rows-[auto_1fr_auto]">
-        <header className="flex min-h-16 items-center justify-between border-b border-white/10 bg-[#1d1c1a]/90 px-5 backdrop-blur">
+      <main className="grid min-h-screen min-w-0 grid-rows-[auto_1fr_auto]">
+        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-[#1d1c1a]/90 px-3 backdrop-blur sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <button className="icon-btn lg:hidden" onClick={() => setRailOpen((value) => !value)} title="Chats">
               <PanelLeft size={18} />
@@ -273,7 +291,7 @@ export function ChatPage() {
               <p className="truncate text-sm text-[#aaa49a]">{activeModel?.description || "Balanced reasoning for everyday work."}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button className="icon-btn" onClick={renameConversation} disabled={!activeConversation} title="Rename">
               <Edit3 size={17} />
             </button>
@@ -283,13 +301,13 @@ export function ChatPage() {
           </div>
         </header>
 
-        <section className="overflow-y-auto px-5 py-6">
+        <section className="overflow-y-auto px-3 py-5 sm:px-5 sm:py-6">
           <div className="mx-auto max-w-4xl space-y-5">
             {messages.length === 0 && (
-              <div className="grid min-h-[calc(100vh-14rem)] place-items-center">
+              <div className="grid min-h-[calc(100vh-13rem)] place-items-center">
                 <div className="w-full">
                   <div className="mb-8 text-center">
-                    <p className="font-serif text-4xl text-[#e8dfd2] sm:text-5xl">What are we making?</p>
+                    <p className="font-serif text-3xl text-[#e8dfd2] sm:text-5xl">What are we making?</p>
                     <p className="mt-3 text-[#aaa49a]">Start with a thought, bug, plan, or rough draft.</p>
                   </div>
                   {composer}
@@ -306,7 +324,7 @@ export function ChatPage() {
 
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={message.role === "user" ? "max-w-[78%] bg-[#34322f] px-4 py-3 text-[#fffaf0]" : "max-w-[92%] px-1 py-2 text-[#f4f1ea]"}>
+                <div className={message.role === "user" ? "max-w-[88%] bg-[#34322f] px-4 py-3 text-[#fffaf0] sm:max-w-[78%]" : "max-w-full px-1 py-2 text-[#f4f1ea] sm:max-w-[92%]"}>
                   {message.role === "model" ? (
                     message.content ? <MarkdownMessage content={message.content} /> : <ThinkingIndicator />
                   ) : (
@@ -330,7 +348,7 @@ export function ChatPage() {
           </div>
         </section>
 
-        <footer className={`bg-[#1d1c1a] px-5 pb-5 ${messages.length === 0 ? "hidden" : ""}`}>
+        <footer className={`bg-[#1d1c1a] px-3 pb-5 sm:px-5 ${messages.length === 0 ? "hidden" : ""}`}>
           <div className="mx-auto max-w-3xl">{composer}</div>
         </footer>
       </main>

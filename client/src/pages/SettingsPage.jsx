@@ -67,7 +67,7 @@ export function SettingsPage() {
     <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] lg:px-10 lg:pb-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-6">
-          <h1 className="text-4xl font-semibold tracking-tight">Settings</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Settings</h1>
           <p className="mt-2 text-[#aaa49a]">Account, profile, and persistent chat behavior.</p>
         </header>
 
@@ -76,7 +76,7 @@ export function SettingsPage() {
         <section className="grid gap-5">
           <Panel title="Profile">
             <div className="grid gap-5 lg:grid-cols-[10rem_1fr]">
-              <div>
+              <div className="max-w-40">
                 <div className="aspect-square overflow-hidden border border-white/10 bg-[#181715]">
                   {profile.avatarUrl ? (
                     <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -178,7 +178,7 @@ export function SettingsPage() {
 
 function Panel({ title, children }) {
   return (
-    <section className="border border-white/10 bg-[#22211f] p-5">
+    <section className="border border-white/10 bg-[#22211f] p-4 sm:p-5">
       <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       {children}
     </section>

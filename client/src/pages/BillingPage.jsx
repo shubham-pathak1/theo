@@ -163,12 +163,12 @@ export function BillingPage() {
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Usage that resets with your workflow.</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Usage that resets with your workflow.</h1>
             <p className="mt-2 max-w-2xl text-[#aaa49a]">
               Theo uses short usage windows, so limits recover every 5 hours instead of locking you out for the whole day.
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-[#22211f] px-4 py-3">
+          <div className="rounded-2xl border border-white/10 bg-[#22211f] px-4 py-3 lg:min-w-56">
             <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">Current plan</p>
             <p className="mt-1 text-2xl font-semibold capitalize">{user?.plan || "free"}</p>
             {user?.plan !== "free" && (
@@ -217,7 +217,7 @@ export function BillingPage() {
 
         {notice && <p className="rounded-xl border border-white/10 bg-[#252421] px-3 py-2 text-sm text-[#c9c3ba]">{notice}</p>}
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {plans.map((plan) => (
             <article
               key={plan.id}
@@ -235,7 +235,7 @@ export function BillingPage() {
               </div>
               <h2 className="text-2xl font-semibold">{plan.name}</h2>
               <p className="mt-2 text-sm text-[#aaa49a]">{plan.caption}</p>
-              <p className="mt-6 font-serif text-5xl text-[#e8dfd2]">
+              <p className="mt-6 font-serif text-4xl text-[#e8dfd2] sm:text-5xl">
                 Rs {plan.price}
                 <span className="ml-2 align-middle text-sm font-sans text-[#8f887f]">/ month</span>
               </p>

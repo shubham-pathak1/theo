@@ -37,7 +37,7 @@ export function ResetPasswordPage() {
 
   return (
     <main className="grid min-h-screen place-items-center bg-[#111111] px-4 text-[#f4f1ea]">
-      <form className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-8" onSubmit={submit}>
+      <form className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-8" onSubmit={submit}>
         <h1 className="text-3xl font-semibold tracking-tight">Reset password</h1>
         <p className="mt-2 text-sm text-white/55">Choose a new Theo password.</p>
         <input

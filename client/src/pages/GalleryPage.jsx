@@ -67,7 +67,7 @@ export function GalleryPage() {
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Generated work.</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Generated work.</h1>
             <p className="mt-2 max-w-2xl text-[#aaa49a]">Published outputs and selected visual studies from Theo.</p>
           </div>
           <div className="segmented">
@@ -79,8 +79,8 @@ export function GalleryPage() {
         {error && <p className="mb-4 border border-[#d9895f]/30 bg-[#d9895f]/10 px-3 py-2 text-sm text-[#efb18d]">{error}</p>}
 
         {visibleImages.length === 0 ? (
-          <section className="border border-dashed border-white/15 bg-[#22211f] p-12 text-center">
-            <p className="font-serif text-3xl text-[#e8dfd2]">Nothing here yet.</p>
+          <section className="border border-dashed border-white/15 bg-[#22211f] p-8 text-center sm:p-12">
+            <p className="font-serif text-2xl text-[#e8dfd2] sm:text-3xl">Nothing here yet.</p>
             <p className="mx-auto mt-2 max-w-md text-sm text-[#aaa49a]">
               Publish a completed image from Image Studio and it will appear here.
             </p>
@@ -159,12 +159,12 @@ function ImageDetail({ image, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <article className="grid max-h-[90vh] w-full max-w-5xl overflow-hidden border border-white/10 bg-[#1d1c1a] shadow-2xl lg:grid-cols-[1.2fr_0.8fr]" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid items-end bg-black/70 p-3 backdrop-blur-sm sm:place-items-center sm:p-4" onClick={onClose}>
+      <article className="grid max-h-[92vh] w-full max-w-5xl overflow-y-auto border border-white/10 bg-[#1d1c1a] shadow-2xl lg:grid-cols-[1.2fr_0.8fr]" onClick={(event) => event.stopPropagation()}>
         <div className="bg-[#11110f]">
-          <img src={image.url} alt={image.prompt} className="h-full max-h-[90vh] w-full object-contain" />
+          <img src={image.url} alt={image.prompt} className="max-h-[58vh] w-full object-contain lg:h-full lg:max-h-[90vh]" />
         </div>
-        <div className="flex flex-col gap-5 p-5">
+        <div className="flex flex-col gap-5 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">{image.published ? "Published" : "Private"}</p>
@@ -175,7 +175,7 @@ function ImageDetail({ image, onClose }) {
             </button>
           </div>
           <p className="leading-7 text-[#d8d1c7]">{image.prompt}</p>
-          <div className="mt-auto flex gap-2">
+          <div className="mt-auto flex flex-col gap-2 sm:flex-row">
             <button className="icon-btn flex-1" onClick={copyPrompt}>
               <Copy size={17} />
               <span>{copied ? "Copied!" : "Copy prompt"}</span>

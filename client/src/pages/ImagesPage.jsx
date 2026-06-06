@@ -142,7 +142,7 @@ export function ImagesPage() {
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Create image.</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Create image.</h1>
             <p className="mt-2 max-w-2xl text-[#aaa49a]">Write a prompt, choose a frame, and keep each result in history.</p>
           </div>
           <div className="segmented w-full lg:w-auto">
@@ -154,11 +154,11 @@ export function ImagesPage() {
           </div>
         </header>
 
-        <section className="border border-white/10 bg-[#22211f] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.28)]">
-          <div className="grid gap-4 lg:grid-cols-[1fr_180px]">
+        <section className="border border-white/10 bg-[#22211f] p-3 shadow-[0_26px_90px_rgba(0,0,0,0.28)] sm:p-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
             <div className="grid gap-3">
               <textarea
-                className="min-h-40 w-full resize-none border border-white/10 bg-[#181715] px-5 py-4 text-lg text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35"
+                className="min-h-36 w-full resize-none border border-white/10 bg-[#181715] px-4 py-3 text-base leading-7 text-[#f4f1ea] outline-none placeholder:text-[#8f887f] focus:border-white/35 sm:min-h-40 sm:px-5 sm:py-4 sm:text-lg"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder={batchMode ? "Separate prompts with a blank line or ---" : "Describe the image Theo should create..."}
@@ -171,7 +171,7 @@ export function ImagesPage() {
               />
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <button className="primary-btn min-h-16" onClick={generate} disabled={busy || !prompt.trim()}>
                 <ImagePlus size={18} />
                 {busy ? "Queued" : batchMode ? "Create batch" : "Create image"}
@@ -195,8 +195,8 @@ export function ImagesPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {images.length === 0 && (
-            <div className="col-span-full rounded-3xl border border-dashed border-white/15 bg-[#22211f] p-12 text-center">
-              <p className="font-serif text-3xl text-[#e8dfd2]">Start with a visual brief.</p>
+            <div className="col-span-full rounded-3xl border border-dashed border-white/15 bg-[#22211f] p-8 text-center sm:p-12">
+              <p className="font-serif text-2xl text-[#e8dfd2] sm:text-3xl">Start with a visual brief.</p>
               <p className="mx-auto mt-2 max-w-md text-sm text-[#aaa49a]">
                 Pick a prompt preset or write your own. Theo will track status, output, and publishing from here.
               </p>
@@ -212,7 +212,7 @@ export function ImagesPage() {
                   <span className="text-xs text-[#8f887f]">{formatDate(image.createdAt)}</span>
                 </div>
                 <p className="min-h-12 text-sm leading-6 text-[#f4f1ea]">{image.prompt}</p>
-                <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
+                <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
                   <button className="icon-btn" onClick={() => copyPrompt(image)} title="Copy prompt">
                     <Copy size={17} />
                     <span className="hidden xl:inline">{copiedId === image._id ? "Copied!" : "Copy"}</span>

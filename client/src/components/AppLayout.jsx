@@ -95,7 +95,7 @@ export function AppLayout() {
         </button>
       </header>
 
-      <main className="lg:pl-72">
+      <main className="min-w-0 lg:pl-72">
         {user && !user.emailVerified && (
           <div className="border-b border-[#d9895f]/20 bg-[#2a211c] px-4 py-3 text-sm text-[#f0c2a6] lg:px-10">
             <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -123,7 +123,7 @@ export function AppLayout() {
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 grid border-t border-white/10 bg-[#181715] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 grid border-t border-white/10 bg-[#181715] pb-[env(safe-area-inset-bottom)] lg:hidden"
         style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
       >
         {navItems.map((item) => (
@@ -132,11 +132,11 @@ export function AppLayout() {
             to={item.to}
             end={item.to === "/"}
             className={({ isActive }) =>
-              `grid h-16 place-items-center text-xs ${isActive ? "text-[#f4f1ea]" : "text-[#aaa49a]"}`
+              `grid h-16 min-w-0 place-items-center gap-1 text-[11px] ${isActive ? "text-[#f4f1ea]" : "text-[#aaa49a]"}`
             }
           >
             <item.icon size={20} />
-            <span>{item.label}</span>
+            <span className="max-w-full truncate px-1">{item.label}</span>
           </NavLink>
         ))}
       </nav>

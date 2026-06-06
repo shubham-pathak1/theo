@@ -402,9 +402,9 @@ export function AuthPage() {
       </header>
 
       <main id="top">
-        <section className="mx-auto grid max-w-7xl gap-12 px-5 pb-28 pt-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:pt-6">
+        <section className="mx-auto grid max-w-7xl gap-10 px-4 pb-20 pt-10 sm:px-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:pb-28 lg:pt-6">
           <div className="mx-auto w-full max-w-md lg:mx-0 lg:pl-14">
-            <h1 className="font-serif text-5xl leading-[0.95] tracking-normal text-[#f8f3ea] md:text-6xl">
+            <h1 className="font-serif text-4xl leading-[0.98] tracking-normal text-[#f8f3ea] sm:text-5xl md:text-6xl">
               Think clearly,
               <br />
               build faster
@@ -501,8 +501,8 @@ export function AuthPage() {
             </form>
           </div>
 
-          <div className="mx-auto w-full max-w-[640px] rounded-2xl border border-white/15 bg-black p-6 shadow-[0_28px_100px_rgba(0,0,0,0.7)] lg:mr-0">
-            <div className="rounded-[28px] bg-[#f4f0ea] p-8 text-[#15130f] md:p-10">
+          <div className="mx-auto w-full max-w-[640px] rounded-2xl border border-white/15 bg-black p-3 shadow-[0_28px_100px_rgba(0,0,0,0.7)] sm:p-6 lg:mr-0">
+            <div className="rounded-2xl bg-[#f4f0ea] p-5 text-[#15130f] sm:rounded-[28px] sm:p-8 md:p-10">
               <div className="mb-7 flex items-center justify-between">
                 <h2 className="font-serif text-4xl">Theo</h2>
                 <span className="rounded-full bg-[#15130f] px-3 py-1 text-xs font-semibold text-[#f4f0ea]">Live workspace</span>
@@ -515,7 +515,7 @@ export function AuthPage() {
                 <span className="text-xl font-medium">New task</span>
               </div>
 
-              <div className="space-y-6 text-xl">
+              <div className="space-y-5 text-base sm:space-y-6 sm:text-xl">
                 <PreviewRow icon={MessageSquare} text="Draft launch plan for AI image gallery" active />
                 <PreviewRow icon={Code2} text="Explain refresh token rotation" active />
                 <PreviewRow icon={Image} text="Generate cinematic app hero image" active />

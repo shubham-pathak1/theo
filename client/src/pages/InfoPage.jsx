@@ -88,9 +88,9 @@ export function InfoPage({ page }) {
   const content = pages[page] || pages.about;
 
   return (
-    <main className="min-h-screen bg-[#11110f] px-5 py-6 text-[#f6f1e8]">
+    <main className="min-h-screen bg-[#11110f] px-4 py-5 text-[#f6f1e8] sm:px-5 sm:py-6">
       <div className="mx-auto max-w-3xl">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-4">
           <Link to="/auth" className="flex items-center gap-2 text-lg font-semibold">
             <img src="/favicon.svg" alt="" className="h-6 w-6" />
             Theo
@@ -101,10 +101,10 @@ export function InfoPage({ page }) {
           </Link>
         </header>
 
-        <section className="py-24">
+        <section className="py-16 sm:py-24">
           <p className="mb-5 text-xs uppercase tracking-[0.2em] text-white/35">{content.eyebrow}</p>
-          <h1 className="font-serif text-5xl leading-tight text-[#f8f3ea]">{content.title}</h1>
-          <div className="mt-8 space-y-5 text-lg leading-8 text-white/62">
+          <h1 className="font-serif text-4xl leading-tight text-[#f8f3ea] sm:text-5xl">{content.title}</h1>
+          <div className="mt-8 space-y-5 text-base leading-8 text-white/62 sm:text-lg">
             {content.body.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
