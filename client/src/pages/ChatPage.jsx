@@ -1,4 +1,4 @@
-import { CreditCard, Edit3, Image as ImageIcon, LogOut, MessageSquare, PanelLeft, Pin, PinOff, Plus, RotateCcw, Search, Send, Settings, Sparkles, Square, Trash2, Users } from "lucide-react";
+import { CreditCard, Edit3, Image as ImageIcon, LogOut, MessageSquare, PanelLeft, Pin, PinOff, Plus, RotateCcw, Search, Send, Settings, Square, Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { MarkdownMessage } from "../components/MarkdownMessage.jsx";
@@ -205,7 +205,7 @@ export function ChatPage() {
   );
 
   return (
-    <div className="grid min-h-screen bg-[#1d1c1a] text-[#f4f1ea] lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <div className="grid min-h-screen bg-[#1d1c1a] text-[#f4f1ea] lg:grid-cols-[16rem_minmax(0,1fr)]">
       {railOpen && (
         <button
           type="button"
@@ -215,7 +215,7 @@ export function ChatPage() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[min(88vw,19rem)] flex-col border-r border-white/10 bg-[#181715] transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-[min(84vw,16rem)] flex-col border-r border-white/10 bg-[#181715] transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 ${
           railOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -285,7 +285,6 @@ export function ChatPage() {
                 }`}
                 onClick={() => selectConversation(conversation.id)}
               >
-                <span className="mt-1 text-[#aaa49a]">{conversation.pinned ? <Pin size={13} /> : <PanelLeft size={13} />}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{conversation.title}</span>
                   <span className="mt-0.5 block truncate text-xs text-[#8f887f]">{conversation.preview}</span>
@@ -308,9 +307,13 @@ export function ChatPage() {
 
         <div className="border-t border-white/10 p-4">
           <div className="mb-3 flex items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#d8d1c7] text-sm font-semibold text-[#181715]">
-              {(user?.displayName || user?.email || "T").slice(0, 1).toUpperCase()}
-            </div>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#d8d1c7] text-sm font-semibold text-[#181715]">
+                {(user?.displayName || user?.email || "T").slice(0, 1).toUpperCase()}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user?.displayName}</p>
               <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
@@ -329,13 +332,12 @@ export function ChatPage() {
             <button className="icon-btn rounded-full lg:hidden" onClick={() => setRailOpen((value) => !value)} title="Chats">
               <PanelLeft size={18} />
             </button>
-            <button className="hidden h-9 w-9 place-items-center rounded-full border border-white/10 bg-[#2b2a27] text-[#f4f1ea] transition hover:bg-[#34322f] lg:grid" onClick={newChat} title="New chat">
-              <Plus size={18} />
-            </button>
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold">{activeConversation?.title || "New chat"}</h1>
-              <p className="truncate text-sm text-[#aaa49a]">{activeModel?.description || "Balanced reasoning for everyday work."}</p>
-            </div>
+            {activeConversation && (
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-semibold">{activeConversation.title}</h1>
+                <p className="truncate text-sm text-[#aaa49a]">{activeModel?.description || "Balanced reasoning for everyday work."}</p>
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button className="icon-btn rounded-full" onClick={renameConversation} disabled={!activeConversation} title="Rename">
@@ -353,8 +355,8 @@ export function ChatPage() {
               <div className="grid min-h-[calc(100vh-13rem)] place-items-center">
                 <div className="w-full max-w-3xl">
                   <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 grid h-11 w-11 place-items-center rounded-full bg-[#d9895f]/15 text-[#d9895f]">
-                      <Sparkles size={21} />
+                    <div className="mx-auto mb-4 grid h-11 w-11 place-items-center rounded-full bg-[#2b2a27]">
+                      <img src="/favicon.svg" alt="" className="h-7 w-7" />
                     </div>
                     <p className="font-serif text-3xl text-[#e8dfd2] sm:text-5xl">Hey there, {user?.displayName?.split(" ")[0] || "there"}</p>
                     <p className="mt-3 text-[#aaa49a]">Ask, draft, debug, or shape a visual idea.</p>
