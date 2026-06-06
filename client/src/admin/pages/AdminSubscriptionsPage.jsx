@@ -12,7 +12,7 @@ export function AdminSubscriptionsPage() {
   }, []);
 
   return (
-    <AdminPageFrame eyebrow="Subscriptions" title="Billing records" subtitle="Subscription records created through Razorpay Checkout and webhooks." notice={notice}>
+    <AdminPageFrame eyebrow="Billing" title="Payment records" subtitle="Plan payments created through Razorpay Checkout and webhooks." notice={notice}>
       <Panel title="Latest records">
         <AdminTable
           columns={["Customer", "Plan", "Status", "Provider ID", "Created"]}
@@ -20,7 +20,9 @@ export function AdminSubscriptionsPage() {
             <UserCell key="user" user={subscription.user || { displayName: "Unknown", email: "No user linked" }} simple />,
             <span key="plan" className="capitalize">{subscription.plan}</span>,
             <StatusPill key="status" value={subscription.status} />,
-            <span key="provider" className="block max-w-xs truncate text-xs text-[#8f887f]">{subscription.providerSubscriptionId}</span>,
+            <span key="provider" className="block max-w-xs truncate text-xs text-[#8f887f]">
+              {subscription.providerPaymentId || subscription.providerOrderId || subscription.providerSubscriptionId || "-"}
+            </span>,
             formatDate(subscription.createdAt)
           ])}
         />

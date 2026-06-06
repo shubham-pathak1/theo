@@ -39,7 +39,7 @@ const plans = [
       "More image generations",
       "Priority image queue",
       "Custom instructions",
-      "Subscription billing"
+      "Payment billing"
     ]
   },
   {

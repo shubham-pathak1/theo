@@ -9,5 +9,5 @@ export const adminNav = [
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/images", label: "Image jobs", icon: Image },
-  { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard }
+  { to: "/admin/subscriptions", label: "Billing", icon: CreditCard }
 ];

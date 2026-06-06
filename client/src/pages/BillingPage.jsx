@@ -93,8 +93,8 @@ export function BillingPage() {
         const checkout = new window.Razorpay({
           key: data.keyId,
           name: "Theo",
-          description: `${plan.toUpperCase()} plan subscription`,
-          subscription_id: data.subscription.id,
+          description: `${plan.toUpperCase()} plan upgrade`,
+          order_id: data.order.id,
           prefill: {
             name: user?.displayName || "",
             email: user?.email || ""
@@ -106,8 +106,8 @@ export function BillingPage() {
             try {
               const verified = await api.post("/api/billing/verify", {
                 plan,
+                razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySubscriptionId: response.razorpay_subscription_id,
                 razorpaySignature: response.razorpay_signature
               });
               updateUser(verified.user || { plan });
@@ -171,7 +171,7 @@ export function BillingPage() {
                 onClick={cancelPlan}
                 disabled={cancelling}
               >
-                {cancelling ? "Cancelling" : "Cancel subscription"}
+                {cancelling ? "Cancelling" : "Cancel plan"}
               </button>
             )}
           </div>
@@ -195,7 +195,7 @@ export function BillingPage() {
 
             <div className="rounded-3xl border border-white/10 bg-[#22211f] p-5">
               <ShieldCheck className="text-[#d9895f]" size={24} />
-              <h2 className="mt-4 text-xl font-semibold">Subscription billing</h2>
+              <h2 className="mt-4 text-xl font-semibold">Payment billing</h2>
               <p className="mt-2 text-sm leading-6 text-[#aaa49a]">
                 Plan changes are handled through Razorpay Checkout and applied after payment verification.
               </p>
@@ -256,18 +256,20 @@ export function BillingPage() {
 
         <section className="border border-white/10 bg-[#22211f]">
           <div className="border-b border-white/10 p-5">
-            <h2 className="text-xl font-semibold">Subscription records</h2>
-            <p className="mt-1 text-sm text-[#8f887f]">Recent subscription events from Razorpay.</p>
+            <h2 className="text-xl font-semibold">Billing records</h2>
+            <p className="mt-1 text-sm text-[#8f887f]">Recent plan payments from Razorpay.</p>
           </div>
           {subscriptions.length === 0 ? (
-            <p className="p-5 text-sm text-[#8f887f]">No subscription records yet.</p>
+            <p className="p-5 text-sm text-[#8f887f]">No billing records yet.</p>
           ) : (
             <div className="divide-y divide-white/10">
               {subscriptions.map((subscription) => (
                 <div key={subscription._id} className="grid gap-3 p-5 text-sm md:grid-cols-[1fr_auto_auto] md:items-center">
                   <div>
                     <p className="font-semibold capitalize">{subscription.plan} plan</p>
-                    <p className="mt-1 text-xs text-[#8f887f]">{subscription.providerSubscriptionId || "No provider id"}</p>
+                    <p className="mt-1 text-xs text-[#8f887f]">
+                      {subscription.providerPaymentId || subscription.providerOrderId || subscription.providerSubscriptionId || "No provider id"}
+                    </p>
                   </div>
                   <span className="w-fit border border-white/10 bg-[#181715] px-3 py-1 text-xs font-semibold capitalize text-[#c9c3ba]">
                     {subscription.status}
