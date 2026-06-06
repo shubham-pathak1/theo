@@ -17,7 +17,8 @@ export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
 
 const realSubscriptionQuery = {
-  providerSubscriptionId: { $not: /^demo_/ }
+  providerSubscriptionId: { $not: /^demo_/ },
+  $or: [{ providerOrderId: { $exists: true } }, { providerPaymentId: { $exists: true } }]
 };
 
 const userQuerySchema = z.object({
@@ -353,6 +354,8 @@ adminRouter.get(
         plan: subscription.plan,
         provider: subscription.provider,
         providerSubscriptionId: subscription.providerSubscriptionId,
+        providerOrderId: subscription.providerOrderId,
+        providerPaymentId: subscription.providerPaymentId,
         status: subscription.status,
         currentPeriodEnd: subscription.currentPeriodEnd,
         createdAt: subscription.createdAt,

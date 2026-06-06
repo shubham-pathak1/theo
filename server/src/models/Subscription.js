@@ -6,6 +6,8 @@ const subscriptionSchema = new mongoose.Schema(
     plan: { type: String, enum: ["free", "pro", "max"], required: true },
     provider: { type: String, enum: ["razorpay"], default: "razorpay" },
     providerSubscriptionId: String,
+    providerOrderId: String,
+    providerPaymentId: String,
     status: { type: String, default: "created" },
     currentPeriodEnd: Date
   },

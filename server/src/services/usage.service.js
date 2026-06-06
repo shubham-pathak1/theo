@@ -38,6 +38,7 @@ export async function getEffectivePlan(user) {
     user: user.id,
     plan: user.plan,
     providerSubscriptionId: { $not: /^demo_/ },
+    $or: [{ providerOrderId: { $exists: true } }, { providerPaymentId: { $exists: true } }],
     status: { $in: ACTIVE_SUBSCRIPTION_STATUSES },
     $or: [
       { currentPeriodEnd: { $exists: false } },

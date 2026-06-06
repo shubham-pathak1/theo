@@ -6,16 +6,21 @@ import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Subscription } from "../models/Subscription.js";
 import { User } from "../models/User.js";
-import { ACTIVE_SUBSCRIPTION_STATUSES, getUsageForUser } from "../services/usage.service.js";
+import { getUsageForUser } from "../services/usage.service.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { verifySignature, verifyWebhookSignature } from "../utils/crypto.js";
 
 export const billingRouter = Router();
 
-const planIds = {
-  pro: env.RAZORPAY_PRO_PLAN_ID,
-  max: env.RAZORPAY_MAX_PLAN_ID
+const planAmounts = {
+  pro: 19900,
+  max: 49900
+};
+
+const realPaymentRecordQuery = {
+  providerSubscriptionId: { $not: /^demo_/ },
+  $or: [{ providerOrderId: { $exists: true } }, { providerPaymentId: { $exists: true } }]
 };
 
 const subscribeSchema = z.object({
@@ -27,8 +32,8 @@ const subscribeSchema = z.object({
 const verifyCheckoutSchema = z.object({
   body: z.object({
     plan: z.enum(["pro", "max"]),
+    razorpayOrderId: z.string().min(1),
     razorpayPaymentId: z.string().min(1),
-    razorpaySubscriptionId: z.string().min(1),
     razorpaySignature: z.string().min(1)
   })
 });
@@ -58,9 +63,15 @@ function publicBillingUser(user) {
   };
 }
 
-function periodEndFromRazorpay(entity) {
+function planPeriodEnd(entity) {
   const timestamp = entity?.current_end || entity?.charge_at || entity?.end_at;
   return timestamp ? new Date(timestamp * 1000) : undefined;
+}
+
+function nextPlanPeriodEnd() {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+  return date;
 }
 
 function billingConfigError(plan) {
@@ -69,9 +80,6 @@ function billingConfigError(plan) {
   }
   if (!env.RAZORPAY_KEY_SECRET) {
     return new ApiError(500, "Razorpay key secret is not configured", { code: "RAZORPAY_KEY_SECRET_MISSING" });
-  }
-  if (!planIds[plan]) {
-    return new ApiError(500, `Razorpay ${plan} plan ID is not configured`, { code: "RAZORPAY_PLAN_ID_MISSING", plan });
   }
   return null;
 }
@@ -87,7 +95,7 @@ function razorpayError(error) {
       { code, providerMessage: description }
     );
   }
-  return new ApiError(502, `Razorpay subscription failed: ${description}`, { code, providerMessage: description });
+  return new ApiError(502, `Razorpay payment failed: ${description}`, { code, providerMessage: description });
 }
 
 billingRouter.get(
@@ -104,7 +112,7 @@ billingRouter.get(
   asyncHandler(async (req, res) => {
     const subscriptions = await Subscription.find({
       user: req.user.id,
-      providerSubscriptionId: { $not: /^demo_/ }
+      ...realPaymentRecordQuery
     })
       .sort({ createdAt: -1 })
       .limit(12);
@@ -122,12 +130,12 @@ billingRouter.post(
     const configError = billingConfigError(plan);
     if (!razorpay || configError) throw configError;
 
-    let subscription;
+    let order;
     try {
-      subscription = await razorpay.subscriptions.create({
-        plan_id: planIds[plan],
-        total_count: 12,
-        customer_notify: 1,
+      order = await razorpay.orders.create({
+        amount: planAmounts[plan],
+        currency: "INR",
+        receipt: `theo_${plan}_${Date.now()}`,
         notes: {
           userId: req.user.id,
           plan
@@ -140,15 +148,14 @@ billingRouter.post(
     await Subscription.create({
       user: req.user.id,
       plan,
-      providerSubscriptionId: subscription.id,
-      status: subscription.status,
-      currentPeriodEnd: periodEndFromRazorpay(subscription)
+      providerOrderId: order.id,
+      status: "created"
     });
-    console.info("Razorpay subscription created", { userId: req.user.id, plan, subscriptionId: subscription.id });
+    console.info("Razorpay order created", { userId: req.user.id, plan, orderId: order.id });
 
     res.status(201).json({
       checkoutRequired: true,
-      subscription,
+      order,
       keyId: env.RAZORPAY_KEY_ID
     });
   })
@@ -163,8 +170,8 @@ billingRouter.post(
       throw new ApiError(500, "Razorpay key secret is not configured");
     }
 
-    const { plan, razorpayPaymentId, razorpaySubscriptionId, razorpaySignature } = req.validated.body;
-    const signaturePayload = `${razorpayPaymentId}|${razorpaySubscriptionId}`;
+    const { plan, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.validated.body;
+    const signaturePayload = `${razorpayOrderId}|${razorpayPaymentId}`;
     if (!verifySignature(signaturePayload, razorpaySignature, env.RAZORPAY_KEY_SECRET)) {
       throw new ApiError(400, "Invalid Razorpay checkout signature");
     }
@@ -172,22 +179,23 @@ billingRouter.post(
     const subscription = await Subscription.findOneAndUpdate(
       {
         user: req.user.id,
-        providerSubscriptionId: razorpaySubscriptionId
+        providerOrderId: razorpayOrderId
       },
       {
         plan,
         status: "activated",
-        currentPeriodEnd: undefined
+        providerPaymentId: razorpayPaymentId,
+        currentPeriodEnd: nextPlanPeriodEnd()
       },
       { new: true }
     );
 
     if (!subscription) {
-      throw new ApiError(404, "Subscription record not found");
+      throw new ApiError(404, "Billing record not found");
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, { plan }, { new: true });
-    console.info("Razorpay checkout verified", { userId: req.user.id, plan, subscriptionId: razorpaySubscriptionId });
+    console.info("Razorpay checkout verified", { userId: req.user.id, plan, orderId: razorpayOrderId, paymentId: razorpayPaymentId });
 
     res.json({
       user: publicBillingUser(user),
@@ -204,7 +212,7 @@ billingRouter.post(
     const subscription = await Subscription.findOne({
       user: req.user.id,
       status: { $nin: ["cancelled", "completed"] },
-      providerSubscriptionId: { $not: /^demo_/ }
+      ...realPaymentRecordQuery
     }).sort({ createdAt: -1 });
 
     if (!subscription) {
@@ -213,24 +221,19 @@ billingRouter.post(
       return;
     }
 
-    const razorpay = razorpayClient();
-    if (razorpay && subscription.providerSubscriptionId) {
-      try {
-        await razorpay.subscriptions.cancel(subscription.providerSubscriptionId, false);
-      } catch (error) {
-        throw razorpayError(error);
-      }
-    }
-
     subscription.status = "cancelled";
     await subscription.save();
     const user = await User.findByIdAndUpdate(req.user.id, { plan: "free" }, { new: true });
-    console.info("Subscription cancelled", { userId: req.user.id, subscriptionId: subscription.providerSubscriptionId });
+    console.info("Plan cancelled", {
+      userId: req.user.id,
+      orderId: subscription.providerOrderId,
+      paymentId: subscription.providerPaymentId
+    });
 
     res.json({
       user: publicBillingUser(user),
       subscription,
-      message: "Subscription cancelled"
+      message: "Plan cancelled"
     });
   })
 );
@@ -250,36 +253,32 @@ billingRouter.post(
 
     const event = JSON.parse(payload);
     console.info("Razorpay webhook received", { event: event.event });
-    const entity = event.payload?.subscription?.entity || event.payload?.payment?.entity;
-    const subscriptionId = event.payload?.subscription?.entity?.id || entity?.subscription_id;
-    const existing = subscriptionId ? await Subscription.findOne({ providerSubscriptionId: subscriptionId }) : null;
+    const entity = event.payload?.payment?.entity || event.payload?.order?.entity || event.payload?.subscription?.entity;
+    const orderId = entity?.order_id || event.payload?.order?.entity?.id;
+    const paymentId = event.payload?.payment?.entity?.id;
+    const existing = orderId
+      ? await Subscription.findOne({ providerOrderId: orderId })
+      : paymentId
+        ? await Subscription.findOne({ providerPaymentId: paymentId })
+        : null;
     const userId = entity?.notes?.userId || existing?.user;
     const plan = entity?.notes?.plan || existing?.plan;
-    const inactiveEvents = new Set([
-      "subscription.cancelled",
-      "subscription.completed",
-      "subscription.expired",
-      "subscription.halted",
-      "payment.failed"
-    ]);
+    const inactiveEvents = new Set(["payment.failed"]);
     const status = event.event === "payment.failed" ? "past_due" : entity?.status || existing?.status;
-    const shouldActivate =
-      userId &&
-      plan &&
-      (ACTIVE_SUBSCRIPTION_STATUSES.includes(status) ||
-        ["subscription.activated", "subscription.authenticated", "subscription.charged"].includes(event.event));
+    const shouldActivate = userId && plan && ["payment.captured", "payment.authorized"].includes(event.event);
     const shouldDeactivate = userId && inactiveEvents.has(event.event);
 
-    if (subscriptionId && userId && plan) {
+    if ((orderId || paymentId) && userId && plan) {
       await Subscription.findOneAndUpdate(
-        { providerSubscriptionId: subscriptionId },
+        orderId ? { providerOrderId: orderId } : { providerPaymentId: paymentId },
         {
           user: userId,
           plan,
           provider: "razorpay",
-          providerSubscriptionId: subscriptionId,
-          status,
-          currentPeriodEnd: periodEndFromRazorpay(entity)
+          providerOrderId: orderId,
+          providerPaymentId: paymentId,
+          status: shouldActivate ? "activated" : status,
+          currentPeriodEnd: shouldActivate ? nextPlanPeriodEnd() : planPeriodEnd(entity)
         },
         { upsert: true }
       );
