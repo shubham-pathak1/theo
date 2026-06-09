@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api, getAccessToken, refreshSession, setAccessToken } from "../lib/api.js";
+import { api, refreshSession, setAccessToken } from "../lib/api.js";
 
 const AuthContext = createContext(null);
 
@@ -10,12 +10,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function restoreSession() {
       try {
-        if (getAccessToken()) {
-          const data = await api.get("/api/auth/me");
-          setUser(data.user);
-          return;
-        }
-
+        // Always refresh first — the token in localStorage may be expired.
+        // refreshSession() uses the httpOnly refresh cookie which is always current.
         const session = await refreshSession();
         setUser(session?.user || null);
       } catch {
