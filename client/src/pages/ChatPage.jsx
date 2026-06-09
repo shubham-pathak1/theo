@@ -42,6 +42,7 @@ export function ChatPage() {
   const [conversationImages, setConversationImages] = useState({});
   const [actionBusy, setActionBusy] = useState({});
   const abortRef = useRef(null);
+  const streamingRef = useRef(false);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId),
@@ -64,6 +65,7 @@ export function ChatPage() {
   }, [loadConversations]);
 
   useEffect(() => {
+    if (streamingRef.current) return;
     if (!activeId) {
       setMessages([]);
       setConversationImages({});
@@ -71,6 +73,7 @@ export function ChatPage() {
     }
 
     api.get(`/api/chat/conversations/${activeId}`).then(({ conversation, images }) => {
+      if (streamingRef.current) return; // guard against late response during stream
       setMessages(conversation.messages || []);
       const imageMap = {};
       if (images) {
@@ -171,6 +174,7 @@ export function ChatPage() {
     setError("");
     setDraft("");
     setBusy(true);
+    streamingRef.current = true;
 
     let conversationId = activeId;
     try {
@@ -199,6 +203,7 @@ export function ChatPage() {
     } catch (err) {
       setError(err.message);
     } finally {
+      streamingRef.current = false;
       setBusy(false);
     }
   }
@@ -217,6 +222,7 @@ export function ChatPage() {
     setLastFailedPrompt("");
     setDraft("");
     setBusy(true);
+    streamingRef.current = true;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -235,10 +241,11 @@ export function ChatPage() {
         { message: content, model: selectedModel },
         (token) => {
           setMessages((items) => {
+            if (!items.length) return items;
             const copy = [...items];
             copy[copy.length - 1] = {
               ...copy[copy.length - 1],
-              content: copy[copy.length - 1].content + token
+              content: (copy[copy.length - 1].content ?? "") + token
             };
             return copy;
           });
@@ -253,6 +260,7 @@ export function ChatPage() {
       if (!stopped) setLastFailedPrompt(content);
       setMessages((items) => items.filter((message) => message.content?.trim()));
     } finally {
+      streamingRef.current = false;
       abortRef.current = null;
       setBusy(false);
     }
