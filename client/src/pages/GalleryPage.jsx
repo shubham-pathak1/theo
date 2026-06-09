@@ -40,7 +40,6 @@ const showcaseImages = demoImageUrls.map((url, index) => ({
 export function GalleryPage() {
   const [publishedImages, setPublishedImages] = useState([]);
   const [myImages, setMyImages] = useState([]);
-  const [filter, setFilter] = useState("new");
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState("");
 
@@ -57,41 +56,51 @@ export function GalleryPage() {
   }, []);
 
   const realPublished = publishedImages.filter((image) => !image.demo);
-  const visibleImages = useMemo(() => {
-    if (filter === "mine") return myImages;
-    return realPublished.length ? realPublished : showcaseImages;
-  }, [filter, myImages, realPublished]);
+  const communityImages = useMemo(() => {
+    return [...realPublished, ...showcaseImages];
+  }, [realPublished]);
 
   return (
-    <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] lg:px-10 lg:pb-10">
-      <div className="mx-auto max-w-7xl space-y-7">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Generated work.</h1>
-            <p className="mt-2 max-w-2xl text-[#aaa49a]">Published outputs and selected visual studies from Theo.</p>
-          </div>
-          <div className="segmented">
-            <button className={filter === "new" ? "active" : ""} onClick={() => setFilter("new")}>New</button>
-            <button className={filter === "mine" ? "active" : ""} onClick={() => setFilter("mine")}>Mine</button>
-          </div>
+    <div className="min-h-screen bg-[#1d1c1a] px-4 py-7 pb-24 text-[#f4f1ea] sm:px-6 lg:pb-10">
+      <div className="space-y-12">
+        <header>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Generated work.</h1>
+          <p className="mt-2 max-w-2xl text-[#aaa49a]">Explore personal creations and public showcases.</p>
         </header>
 
         {error && <p className="mb-4 border border-[#d9895f]/30 bg-[#d9895f]/10 px-3 py-2 text-sm text-[#efb18d]">{error}</p>}
 
-        {visibleImages.length === 0 ? (
-          <section className="border border-dashed border-white/15 bg-[#22211f] p-8 text-center sm:p-12">
-            <p className="font-serif text-2xl text-[#e8dfd2] sm:text-3xl">Nothing here yet.</p>
-            <p className="mx-auto mt-2 max-w-md text-sm text-[#aaa49a]">
-              Publish a completed image from Image Studio and it will appear here.
-            </p>
-          </section>
-        ) : (
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {visibleImages.map((image) => (
+        {/* Section 1: My Images */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold sm:text-2xl text-[#e8dfd2]">My images</h2>
+            <p className="text-sm text-[#aaa49a]">Images you have generated in chat.</p>
+          </div>
+          {myImages.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/15 bg-[#22211f] p-8 text-center sm:p-12">
+              <p className="text-base text-[#aaa49a]">You haven't generated any images in chat yet. Switch to Image mode in chat to start creating.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {myImages.map((image) => (
+                <GalleryCard key={image._id} image={image} onOpen={() => setSelectedImage(image)} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Section 2: Community */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold sm:text-2xl text-[#e8dfd2]">Community</h2>
+            <p className="text-sm text-[#aaa49a]">Visual explorations published by the community.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {communityImages.map((image) => (
               <GalleryCard key={image._id} image={image} onOpen={() => setSelectedImage(image)} />
             ))}
-          </section>
-        )}
+          </div>
+        </section>
       </div>
 
       {selectedImage && <ImageDetail image={selectedImage} onClose={() => setSelectedImage(null)} />}
@@ -127,14 +136,10 @@ function GalleryCard({ image, onOpen }) {
         )}
       </button>
 
-      <div className="space-y-4 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">{image.published ? "Published" : "Private"}</p>
-          {image.createdAt && <p className="text-xs text-[#8f887f]">{formatDate(image.createdAt)}</p>}
-        </div>
-        <p className="line-clamp-3 min-h-16 text-sm leading-6 text-[#c9c3ba]">{image.prompt}</p>
+      <div className="space-y-3 p-4">
+        <p className="line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-[#c9c3ba]">{image.prompt}</p>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button className="icon-btn flex-1" onClick={copyPrompt} title="Copy prompt">
             <Copy size={17} />
             <span>{copied ? "Copied!" : "Copy"}</span>
@@ -143,6 +148,9 @@ function GalleryCard({ image, onOpen }) {
             <Download size={17} />
             <span>Download</span>
           </a>
+          {image.createdAt && (
+            <p className="shrink-0 text-xs text-[#6b6560]">{formatDate(image.createdAt)}</p>
+          )}
         </div>
       </div>
     </article>
@@ -167,8 +175,7 @@ function ImageDetail({ image, onClose }) {
         <div className="flex flex-col gap-5 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[#8f887f]">{image.published ? "Published" : "Private"}</p>
-              <h2 className="mt-2 text-2xl font-semibold">Image details</h2>
+              <h2 className="text-2xl font-semibold">Image details</h2>
             </div>
             <button className="icon-btn" onClick={onClose} title="Close">
               <X size={17} />
