@@ -21,7 +21,7 @@ function detectMime(buffer) {
 export async function uploadGeneratedImage(buffer, { userId, imageId }) {
   const mimeType = detectMime(buffer);
 
-  if (!hasCloudinary()) {
+  async function saveLocally() {
     const outputDir = path.resolve(process.cwd(), "uploads", "generated", userId);
     await fs.mkdir(outputDir, { recursive: true });
     const extension = mimeType === "image/svg+xml" ? "svg" : "png";
@@ -29,7 +29,6 @@ export async function uploadGeneratedImage(buffer, { userId, imageId }) {
     const filePath = path.join(outputDir, filename);
     await fs.writeFile(filePath, buffer);
     const publicPath = `/uploads/generated/${userId}/${filename}`;
-
     return {
       publicId: `local/${userId}/${imageId}`,
       url: `${env.SERVER_URL}${publicPath}`,
@@ -37,26 +36,35 @@ export async function uploadGeneratedImage(buffer, { userId, imageId }) {
     };
   }
 
-  const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
-  const result = await cloudinary.uploader.upload(dataUri, {
-    folder: `theo/generated/${userId}`,
-    public_id: imageId,
-    overwrite: true,
-    resource_type: "image"
-  });
+  if (!hasCloudinary()) {
+    return saveLocally();
+  }
 
-  return {
-    publicId: result.public_id,
-    url: result.secure_url,
-    thumbnailUrl: cloudinary.url(result.public_id, {
-      secure: true,
-      width: 480,
-      height: 480,
-      crop: "fill",
-      quality: "auto",
-      fetch_format: "auto"
-    })
-  };
+  try {
+    const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: `theo/generated/${userId}`,
+      public_id: imageId,
+      overwrite: true,
+      resource_type: "image"
+    });
+
+    return {
+      publicId: result.public_id,
+      url: result.secure_url,
+      thumbnailUrl: cloudinary.url(result.public_id, {
+        secure: true,
+        width: 480,
+        height: 480,
+        crop: "fill",
+        quality: "auto",
+        fetch_format: "auto"
+      })
+    };
+  } catch (err) {
+    console.warn("Cloudinary upload failed, falling back to local storage:", err.message);
+    return saveLocally();
+  }
 }
 
 export async function deleteGeneratedImageAsset(image) {
