@@ -1,20 +1,24 @@
-import { CreditCard, Edit3, Image as ImageIcon, LogOut, MessageSquare, PanelLeft, Pin, PinOff, Plus, RotateCcw, Search, Send, Settings, Square, Trash2, Users } from "lucide-react";
+import { Bug, Code2, Copy, Download, CreditCard, Edit3, Image as ImageIcon, LogOut, Map, MessageSquare, PanelLeft, Pencil, Pin, PinOff, Plus, RotateCcw, Search, Send, Settings, Square, Trash2, Users, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { io } from "socket.io-client";
 import { MarkdownMessage } from "../components/MarkdownMessage.jsx";
 import { api, streamMessage } from "../lib/api.js";
 import { useAuth } from "../state/AuthContext.jsx";
 
+const socket = io("/", { autoConnect: false });
+const aspectRatios = ["1:1", "4:3", "3:4", "16:9", "9:16"];
+const IMAGE_TAG_REGEX = /<theo-image id="([a-f\d]{24})"\s*\/>/;
+
 const promptPresets = [
-  { label: "Plan", prompt: "Help me turn this idea into a clear implementation plan:" },
-  { label: "Debug", prompt: "Help me debug this issue step by step:" },
-  { label: "Write", prompt: "Rewrite this clearly and professionally:" },
-  { label: "Code", prompt: "Review this code and suggest the cleanest fix:" }
+  { label: "Plan", icon: Map, prompt: "Help me turn this idea into a clear implementation plan:" },
+  { label: "Debug", icon: Bug, prompt: "Help me debug this issue step by step:" },
+  { label: "Write", icon: Pencil, prompt: "Rewrite this clearly and professionally:" },
+  { label: "Code", icon: Code2, prompt: "Review this code and suggest the cleanest fix:" }
 ];
 
 const navItems = [
   { to: "/", label: "Chat", icon: MessageSquare },
-  { to: "/images", label: "Images", icon: ImageIcon },
   { to: "/gallery", label: "Gallery", icon: Users },
   { to: "/billing", label: "Billing", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings }
@@ -33,6 +37,10 @@ export function ChatPage() {
   const [query, setQuery] = useState("");
   const [railOpen, setRailOpen] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState("");
+  const [mode, setMode] = useState("chat");
+  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [conversationImages, setConversationImages] = useState({});
+  const [actionBusy, setActionBusy] = useState({});
   const abortRef = useRef(null);
 
   const activeConversation = useMemo(
@@ -58,20 +66,141 @@ export function ChatPage() {
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
+      setConversationImages({});
       return;
     }
 
-    api.get(`/api/chat/conversations/${activeId}`).then(({ conversation }) => {
+    api.get(`/api/chat/conversations/${activeId}`).then(({ conversation, images }) => {
       setMessages(conversation.messages || []);
+      const imageMap = {};
+      if (images) {
+        images.forEach((img) => {
+          imageMap[img._id] = img;
+        });
+      }
+      setConversationImages(imageMap);
     });
   }, [activeId]);
+
+  useEffect(() => {
+    socket.connect();
+
+    socket.on("image:status", (update) => {
+      setConversationImages((prev) => {
+        if (!prev[update.id]) return prev;
+        return {
+          ...prev,
+          [update.id]: { ...prev[update.id], ...update }
+        };
+      });
+    });
+
+    return () => {
+      socket.off("image:status");
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    Object.values(conversationImages).forEach((image) => {
+      if (image.status === "queued" || image.status === "processing") {
+        socket.emit("image:watch", image._id);
+      }
+    });
+  }, [conversationImages]);
 
   function newChat() {
     setActiveId("");
     setMessages([]);
+    setConversationImages({});
     setDraft("");
     setError("");
+    setMode("chat");
     setRailOpen(false);
+  }
+
+  async function runImageAction(id, action, callback) {
+    setError("");
+    setActionBusy((state) => ({ ...state, [id]: action }));
+    try {
+      await callback();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionBusy((state) => ({ ...state, [id]: "" }));
+    }
+  }
+
+  async function deleteImage(id) {
+    if (!window.confirm("Delete this image request?")) return;
+    await runImageAction(id, "delete", async () => {
+      await api.delete(`/api/images/${id}`);
+      setConversationImages((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    });
+  }
+
+  async function retryImage(id) {
+    await runImageAction(id, "retry", async () => {
+      const { image } = await api.post(`/api/images/${id}/retry`, {});
+      setConversationImages((prev) => ({ ...prev, [id]: image }));
+      socket.emit("image:watch", image._id);
+    });
+  }
+
+  async function cancelImage(id) {
+    await runImageAction(id, "cancel", async () => {
+      const { image } = await api.post(`/api/images/${id}/cancel`, {});
+      setConversationImages((prev) => ({ ...prev, [id]: image }));
+    });
+  }
+
+  function regenerateImage(image) {
+    setDraft(image.prompt || "");
+    setAspectRatio(image.aspectRatio || "1:1");
+    setMode("image");
+  }
+
+  async function sendImageRequest() {
+    const promptText = draft.trim();
+    if (!promptText || busy) return;
+
+    setError("");
+    setDraft("");
+    setBusy(true);
+
+    let conversationId = activeId;
+    try {
+      if (!conversationId) {
+        const { conversation } = await api.post("/api/chat/conversations", {});
+        conversationId = conversation._id;
+        setActiveId(conversationId);
+      }
+
+      const { image } = await api.post("/api/images", { prompt: promptText, aspectRatio, style: "general" });
+      socket.emit("image:watch", image._id);
+      setConversationImages((prev) => ({ ...prev, [image._id]: image }));
+      
+      setMessages((items) => [
+        ...items,
+        { role: "user", content: promptText },
+        { role: "model", content: `<theo-image id="${image._id}"/>` }
+      ]);
+
+      await api.post(`/api/chat/conversations/${conversationId}/messages/image`, {
+        imageId: image._id,
+        prompt: promptText
+      });
+
+      await loadConversations();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function selectConversation(id) {
@@ -168,34 +297,81 @@ export function ChatPage() {
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            send();
+            if (mode === "image") {
+              sendImageRequest();
+            } else {
+              send();
+            }
           }
         }}
-        placeholder="Message Theo"
+        placeholder={mode === "image" ? "Describe the image Theo should create..." : "Message Theo"}
       />
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <button className="grid h-10 w-10 place-items-center rounded-full text-[#f4f1ea] transition hover:bg-white/7" type="button" onClick={() => setDraft((value) => value || "Help me with ")}>
-          <Plus size={20} />
-        </button>
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          <select
-            className="h-10 min-w-0 rounded-xl border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
-            value={selectedModel}
-            onChange={(event) => setSelectedModel(event.target.value)}
-            title="Model tier"
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+        <div className="flex items-center gap-1">
+          <button 
+            className="grid h-10 w-10 place-items-center rounded-full text-[#f4f1ea] transition hover:bg-white/7" 
+            type="button" 
+            onClick={() => setDraft((value) => value || "Help me with ")}
+            title="Pre-fill text"
           >
-            {(models.length ? models : [{ id: "medium", label: "Theo Medium" }]).map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.label}
-              </option>
-            ))}
-          </select>
+            <Plus size={20} />
+          </button>
+          <button 
+            className={`grid h-10 w-10 place-items-center rounded-full transition ${
+              mode === "image" ? "bg-[#d9895f] text-[#1d1c1a] hover:bg-[#c8784e]" : "text-[#f4f1ea] hover:bg-white/7"
+            }`}
+            type="button" 
+            onClick={() => setMode((prev) => (prev === "chat" ? "image" : "chat"))}
+            title="Image generation mode"
+          >
+            <ImageIcon size={20} />
+          </button>
+        </div>
+        
+        <div className="flex min-w-0 flex-1 sm:flex-initial items-center justify-end gap-2">
+          {mode === "image" ? (
+            <div className="segmented text-xs flex items-center">
+              {aspectRatios.map((ratio) => (
+                <button 
+                  key={ratio} 
+                  className={aspectRatio === ratio ? "active py-1 px-2" : "py-1 px-2"} 
+                  onClick={() => setAspectRatio(ratio)}
+                >
+                  {ratio}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <select
+              className="h-10 min-w-0 rounded-xl border border-white/10 bg-[#1d1c1a] px-3 text-sm font-medium text-[#f4f1ea] outline-none"
+              value={selectedModel}
+              onChange={(event) => setSelectedModel(event.target.value)}
+              title="Model tier"
+            >
+              {(models.length ? models : [{ id: "medium", label: "Theo Medium" }]).map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+          )}
           {busy ? (
-            <button className="primary-icon-btn" onClick={stopGeneration} title="Stop">
+            <button className="primary-icon-btn" onClick={mode === "image" ? null : stopGeneration} disabled={mode === "image"} title="Stop">
               <Square size={17} />
             </button>
           ) : (
-            <button className="primary-icon-btn" onClick={() => send()} disabled={!draft.trim()} title="Send">
+            <button 
+              className="primary-icon-btn" 
+              onClick={() => {
+                if (mode === "image") {
+                  sendImageRequest();
+                } else {
+                  send();
+                }
+              }} 
+              disabled={!draft.trim()} 
+              title={mode === "image" ? "Generate Image" : "Send"}
+            >
               <Send size={18} />
             </button>
           )}
@@ -227,8 +403,12 @@ export function ChatPage() {
               <p className="text-xs text-[#aaa49a]">{user?.plan || "free"} plan</p>
             </div>
           </div>
-          <button className="grid h-9 w-9 place-items-center rounded-full text-[#aaa49a] transition hover:bg-white/7 hover:text-[#f4f1ea]" title="Search">
-            <Search size={18} />
+          <button
+            className="grid h-9 w-9 place-items-center rounded-full text-[#aaa49a] transition hover:bg-white/7 hover:text-[#f4f1ea] lg:hidden"
+            title="Close sidebar"
+            onClick={() => setRailOpen(false)}
+          >
+            <PanelLeft size={18} />
           </button>
         </div>
 
@@ -326,28 +506,7 @@ export function ChatPage() {
         </div>
       </aside>
 
-      <main className="grid min-h-screen min-w-0 grid-rows-[auto_1fr_auto]">
-        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-[#1d1c1a]/90 px-3 backdrop-blur sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <button className="icon-btn rounded-full lg:hidden" onClick={() => setRailOpen((value) => !value)} title="Chats">
-              <PanelLeft size={18} />
-            </button>
-            {activeConversation && (
-              <div className="min-w-0">
-                <h1 className="truncate text-base font-semibold">{activeConversation.title}</h1>
-                <p className="truncate text-sm text-[#aaa49a]">{activeModel?.description || "Balanced reasoning for everyday work."}</p>
-              </div>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button className="icon-btn rounded-full" onClick={renameConversation} disabled={!activeConversation} title="Rename">
-              <Edit3 size={17} />
-            </button>
-            <button className="icon-btn rounded-full" onClick={deleteConversation} disabled={!activeId} title="Delete">
-              <Trash2 size={17} />
-            </button>
-          </div>
-        </header>
+      <main className="grid min-h-screen min-w-0 grid-rows-[1fr_auto]">
 
         <section className="overflow-y-auto px-3 py-5 sm:px-5 sm:py-6">
           <div className="mx-auto max-w-4xl space-y-5">
@@ -365,6 +524,7 @@ export function ChatPage() {
                   <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
                     {promptPresets.map((item) => (
                       <button key={item.label} className="icon-btn" onClick={() => setDraft(item.prompt)}>
+                        <item.icon size={15} />
                         {item.label}
                       </button>
                     ))}
@@ -373,17 +533,45 @@ export function ChatPage() {
               </div>
             )}
 
-            {messages.map((message, index) => (
-              <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={message.role === "user" ? "max-w-[88%] rounded-3xl bg-[#34322f] px-4 py-3 text-[#fffaf0] sm:max-w-[76%]" : "max-w-full px-1 py-2 text-[#f4f1ea] sm:max-w-[86%]"}>
-                  {message.role === "model" ? (
-                    message.content ? <MarkdownMessage content={message.content} /> : <ThinkingIndicator />
-                  ) : (
-                    <p className="leading-7">{message.content}</p>
-                  )}
+            {messages.map((message, index) => {
+              const imageMatch = message.role === "model" && message.content?.match(IMAGE_TAG_REGEX);
+              if (imageMatch) {
+                const imageId = imageMatch[1];
+                const image = conversationImages[imageId];
+                return (
+                  <div key={index} className="flex justify-start">
+                    <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#22211f] overflow-hidden shadow-md">
+                      {image ? (
+                        <InlineImageCard
+                          image={image}
+                          onDelete={deleteImage}
+                          onRetry={retryImage}
+                          onCancel={cancelImage}
+                          onRegenerate={regenerateImage}
+                          actionBusy={actionBusy}
+                        />
+                      ) : (
+                        <div className="p-4 text-sm text-[#8f887f] bg-[#171614]">
+                          Image request not found or deleted.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={message.role === "user" ? "max-w-[88%] rounded-3xl bg-[#34322f] px-4 py-3 text-[#fffaf0] sm:max-w-[76%]" : "max-w-full px-1 py-2 text-[#f4f1ea] sm:max-w-[86%]"}>
+                    {message.role === "model" ? (
+                      message.content ? <MarkdownMessage content={message.content} /> : <ThinkingIndicator />
+                    ) : (
+                      <p className="leading-7">{message.content}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {error && (
               <div className="flex items-center justify-between gap-3 border border-[#d9895f]/30 bg-[#d9895f]/10 px-3 py-2 text-sm text-[#efb18d]">
@@ -414,4 +602,188 @@ function ThinkingIndicator() {
       <span>Thinking</span>
     </div>
   );
+}
+
+function InlineImageCard({ image, onDelete, onRetry, onCancel, onRegenerate, actionBusy }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyPrompt() {
+    await navigator.clipboard.writeText(image.prompt || "");
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <article className="overflow-hidden bg-[#22211f]">
+      <InlineImagePreview image={image} />
+      <div className="space-y-2 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          <StatusPill status={image.status} published={image.published} />
+          <span className="text-xs text-[#8f887f]">{formatDate(image.createdAt)}</span>
+        </div>
+        <p className="text-sm leading-6 text-[#f4f1ea] line-clamp-3" title={image.prompt}>
+          {image.prompt}
+        </p>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
+          <button className="icon-btn px-2.5 py-1 text-xs flex items-center gap-1.5" onClick={copyPrompt} title="Copy prompt">
+            <Copy size={14} />
+            <span>{copied ? "Copied!" : "Copy"}</span>
+          </button>
+          <button className="icon-btn p-1.5" onClick={() => onRegenerate(image)} title="Use prompt">
+            <RotateCcw size={14} />
+          </button>
+          {["queued", "processing"].includes(image.status) && (
+            <button
+              className="icon-btn p-1.5"
+              onClick={() => onCancel(image._id)}
+              disabled={actionBusy[image._id] === "cancel"}
+              title="Cancel"
+            >
+              <X size={14} />
+            </button>
+          )}
+          {["failed", "cancelled"].includes(image.status) && (
+            <button
+              className="icon-btn p-1.5"
+              onClick={() => onRetry(image._id)}
+              disabled={actionBusy[image._id] === "retry"}
+              title="Retry"
+            >
+              <RotateCcw size={14} />
+            </button>
+          )}
+          {image.url ? (
+            <a className="icon-btn p-1.5 flex items-center" href={image.url} download title="Download">
+              <Download size={14} />
+            </a>
+          ) : (
+            <button className="icon-btn p-1.5" disabled title="Download">
+              <Download size={14} />
+            </button>
+          )}
+          <button className="icon-btn p-1.5 text-[#efb18d] hover:bg-[#efb18d]/10" onClick={() => onDelete(image._id)} disabled={actionBusy[image._id] === "delete"} title="Delete">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function InlineImagePreview({ image }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const aspectStyle = useMemo(() => {
+    switch (image.aspectRatio) {
+      case "16:9": return "aspect-[16/9]";
+      case "9:16": return "aspect-[9/16]";
+      case "4:3": return "aspect-[4/3]";
+      case "3:4": return "aspect-[3/4]";
+      case "1:1":
+      default:
+        return "aspect-square";
+    }
+  }, [image.aspectRatio]);
+
+  if (image.url && !imageFailed) {
+    return (
+      <div className={`relative bg-[#11110f] w-full overflow-hidden ${aspectStyle}`}>
+        <img
+          src={image.thumbnailUrl || image.url}
+          alt={image.prompt}
+          className="h-full w-full object-cover transition duration-300 hover:scale-105"
+          onError={() => setImageFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  const failed = image.status === "failed" || image.status === "cancelled" || imageFailed;
+
+  return (
+    <div className={`grid w-full place-items-center bg-[#171614] p-6 text-center ${aspectStyle}`}>
+      <div className="max-w-xs">
+        {failed ? (
+          <>
+            <p className="font-serif text-lg font-semibold text-[#e8dfd2]">
+              {imageFailed ? "Preview unavailable" : previewTitle(image.status)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#8f887f]">
+              {imageFailed
+                ? "The image was generated, but the stored preview URL could not be loaded."
+                : cleanError(image.error)}
+            </p>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative flex h-10 w-10 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d9895f] opacity-75"></span>
+              <span className="relative inline-flex h-6 w-6 rounded-full bg-[#d9895f]"></span>
+            </div>
+            <p className="font-serif text-lg text-[#e8dfd2]">{titleCase(image.status)}</p>
+            <p className="text-xs leading-5 text-[#8f887f]">
+              Theo is preparing this request. The preview will update when the job finishes.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status, published }) {
+  const label = published ? "Published" : status === "done" ? "Ready" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : titleCase(status);
+  const tone =
+    published
+      ? "text-sky-200"
+      : status === "done"
+      ? "text-emerald-200"
+      : status === "failed" || status === "cancelled"
+        ? "text-[#efb18d]"
+        : "text-[#d8d1c7]";
+
+  return (
+    <span className={`rounded-full border border-white/10 bg-[#181715] px-3 py-1 text-xs font-semibold ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+function previewTitle(status) {
+  if (status === "cancelled") return "Cancelled";
+  return "Generation paused";
+}
+
+function cleanError(value = "") {
+  const text = String(value);
+  const jsonStart = text.indexOf("{");
+
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(text.slice(jsonStart));
+      const message = parsed?.error?.message || parsed?.message;
+      if (message) return cleanError(message);
+    } catch {
+      // Fall through to text cleanup.
+    }
+  }
+
+  if (text.toLowerCase().includes("only available on paid plans")) {
+    return "Image generation is paused by the provider plan limit. The request is saved in history.";
+  }
+
+  if (text.toLowerCase().includes("request failed")) {
+    return "Image generation could not be completed right now. The request is saved in history.";
+  }
+
+  return text || "Image generation could not be completed right now.";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function titleCase(value = "") {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
