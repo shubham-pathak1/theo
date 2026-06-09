@@ -5,7 +5,6 @@ import { useAuth } from "../state/AuthContext.jsx";
 
 const navItems = [
   { to: "/", label: "Chat", icon: MessageSquare },
-  { to: "/images", label: "Images", icon: Image },
   { to: "/gallery", label: "Gallery", icon: Users },
   { to: "/billing", label: "Billing", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings }
@@ -67,9 +66,20 @@ export function AppLayout() {
         </nav>
 
         <div className="absolute bottom-5 left-3 right-3 space-y-3">
-          <div className="rounded-xl border border-white/10 bg-[#22211f] p-3">
-            <p className="text-sm font-semibold">{user?.displayName}</p>
-            <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#22211f] p-3">
+            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#2a2926]">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#e8dfd2]">
+                  {(user?.displayName || user?.email || "?")[0].toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{user?.displayName}</p>
+              <p className="truncate text-xs text-[#aaa49a]">{user?.email}</p>
+            </div>
           </div>
           <button className="icon-btn w-full" onClick={logout} title="Log out">
             <LogOut size={18} />
