@@ -10,7 +10,6 @@ import { AuthPage } from "./pages/AuthPage.jsx";
 import { BillingPage } from "./pages/BillingPage.jsx";
 import { ChatPage } from "./pages/ChatPage.jsx";
 import { GalleryPage } from "./pages/GalleryPage.jsx";
-import { ImagesPage } from "./pages/ImagesPage.jsx";
 import { InfoPage } from "./pages/InfoPage.jsx";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
@@ -94,7 +93,6 @@ export function App() {
         }
       >
         <Route index element={<ChatPage />} />
-        <Route path="images" element={<ImagesPage />} />
         <Route path="gallery" element={<GalleryPage />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SettingsPage />} />

@@ -63,7 +63,7 @@ const navItems = [
     label: "Product",
     items: [
       { label: "Chat", note: "Streaming conversations", href: "/" },
-      { label: "Image Studio", note: "Prompt and generate visuals", href: "/images" },
+      { label: "Image Studio", note: "Prompt and generate visuals", href: "/" },
       { label: "Gallery", note: "Browse published work", href: "/gallery" },
       { label: "Settings", note: "Profile and instructions", href: "/settings" }
     ]
@@ -72,7 +72,7 @@ const navItems = [
     label: "Workspace",
     items: [
       { label: "Conversations", note: "Saved chat history", href: "/" },
-      { label: "Image history", note: "Review every request", href: "/images" },
+      { label: "Image history", note: "Review every request in chat", href: "/" },
       { label: "Published work", note: "Curated visual studies", href: "/gallery" },
       { label: "Usage limits", note: "Plans with refresh windows", href: "/billing" }
     ]
@@ -102,7 +102,7 @@ const footerColumns = [
     title: "Product",
     links: [
       { label: "Chat", href: "/" },
-      { label: "Image Studio", href: "/images" },
+      { label: "Image Studio", href: "/" },
       { label: "Gallery", href: "/gallery" },
       { label: "Pricing", href: "#pricing" },
       { label: "Settings", href: "/settings" }
@@ -112,7 +112,7 @@ const footerColumns = [
     title: "Workspace",
     links: [
       { label: "Conversations", href: "/" },
-      { label: "Image history", href: "/images" },
+      { label: "Image history", href: "/" },
       { label: "Published work", href: "/gallery" },
       { label: "Usage limits", href: "/billing" },
       { label: "Account", href: "/settings" }
