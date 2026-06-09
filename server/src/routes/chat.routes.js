@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Conversation } from "../models/Conversation.js";
+import { Image } from "../models/Image.js";
 import { consumeUsage } from "../services/usage.service.js";
 import { modelTiers, resolveModelTier, streamChat, summarizeText } from "../services/gemini.service.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -135,7 +136,23 @@ chatRouter.get(
       throw new ApiError(404, "Conversation not found");
     }
 
-    res.json({ conversation });
+    const imageIds = [];
+    const imageRegex = /<theo-image id="([a-f\d]{24})"\s*\/>/g;
+    for (const msg of conversation.messages) {
+      if (msg.role === "model" && msg.content) {
+        let match;
+        while ((match = imageRegex.exec(msg.content)) !== null) {
+          imageIds.push(match[1]);
+        }
+      }
+    }
+
+    let images = [];
+    if (imageIds.length > 0) {
+      images = await Image.find({ _id: { $in: imageIds }, user: req.user.id });
+    }
+
+    res.json({ conversation, images });
   })
 );
 
@@ -247,5 +264,40 @@ chatRouter.post(
       res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);
       res.end();
     }
+  })
+);
+
+chatRouter.post(
+  "/conversations/:id/messages/image",
+  validate(z.object({
+    params: z.object({ id: z.string().length(24) }),
+    body: z.object({
+      imageId: z.string().length(24),
+      prompt: z.string().min(1)
+    })
+  })),
+  asyncHandler(async (req, res) => {
+    const { id } = req.validated.params;
+    const { imageId, prompt } = req.validated.body;
+
+    const conversation = await Conversation.findOne({
+      _id: id,
+      user: req.user.id,
+      deletedAt: { $exists: false }
+    });
+
+    if (!conversation) {
+      throw new ApiError(404, "Conversation not found");
+    }
+
+    conversation.messages.push({ role: "user", content: prompt });
+    conversation.messages.push({ role: "model", content: `<theo-image id="${imageId}"/>` });
+
+    if (conversation.title === "New chat") {
+      conversation.title = prompt.slice(0, 70);
+    }
+    await conversation.save();
+
+    res.json({ conversation });
   })
 );
