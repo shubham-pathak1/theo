@@ -51,23 +51,41 @@ async function request(path, options = {}) {
 }
 
 function isAuthFailure(data) {
-  return ["AUTH_REQUIRED", "TOKEN_EXPIRED", "TOKEN_INVALID"].includes(data?.details?.code || data?.code);
+  const code = data?.details?.code || data?.code;
+  return ["AUTH_REQUIRED", "TOKEN_EXPIRED", "TOKEN_INVALID", "ACCESS_TOKEN_EXPIRED", "ACCESS_TOKEN_INVALID"].includes(code);
 }
 
-export async function refreshSession() {
-  const response = await fetch(`${API_URL}/api/auth/refresh`, {
-    method: "POST",
-    credentials: "include"
-  });
+let refreshPromise = null;
 
-  if (!response.ok) {
-    setAccessToken("");
-    return null;
+export async function refreshSession() {
+  if (refreshPromise) {
+    return refreshPromise;
   }
 
-  const data = await response.json();
-  setAccessToken(data.accessToken);
-  return data;
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        setAccessToken("");
+        return null;
+      }
+
+      const data = await response.json();
+      setAccessToken(data.accessToken);
+      return data;
+    } catch (err) {
+      setAccessToken("");
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export const api = {
